@@ -1,40 +1,74 @@
 clear all
 tic
 rng(1)
-% Parameters
+%% Parameters
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-deltta   = 0.06;
 betta    = 0.94;
+sigma    = 1; % Risk aversion coefficient, log utility if 1
+
+% Production Parameters
+deltta   = 0.06;
 alfa     = 0.28;
 nu       = 0.85;
 gama     = nu - alfa;
+
+% Distribution Parameters
+ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
+sigz     = 1;
 psi      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
-kappa    = 50;
+ettakap  = 0.01; % Two parameters that will be useful for the disutility from work
+sigkap   = 5;
+
+% The Default Parameters
+mueps    = 0; % if neps =1 mueps - probability, sigeps - value in function
+sigeps   = 1;
+neps     = 100;
+EPSdist  = 1; % 1 if normal distributed
+KAPdist  = 1;
+xi       = 0.2; % Exemption level
+
+
 % Grid Parameters
 amin     = 0.1;
 amax     = 100;
-n_a      = 250;
-n_z      = 250;
-n_e      = 3; % The number of occupations
+na      = 250;
+nz      = 250;
+nkap    = 100;
+ne      = 3; % The number of occupations
+
+% The Grids
+Amethod   = 1; % 1 if linear, 2 if logarithmic
+
+agrid    = adist(amin,amax,na,Amethod);
+
+X        = prodshock(mueps,sigeps,neps,EPSdist); % P and epsilon can also be vectors with size neps
+P        = X(1,1);
+epsilon  = X(:,2);
+clear X
+
+X        = zdist(etta,sigz,nz,ZDist);
+Pz       = X(1,1);
+zgrid    = X(:,2);
+clear X
+
+X        = kapdist(ettakap,sigkap,nkap,KAPdist);
+Pkap     = X(1,1); 
+kapgrid  = X(:,2);
+clear X
+
+% Stationary Distribution Parameters
 N  = 30000;
 T  = 500;
 
-% Exogenous variables
+% Initial Values of the variables
 w        = 0.9;
 r        = 0.04;
+b        = 0.4;
 %--------------------------------------------------------------------------
 
-% The Grids
-agrid  = linspace(amin,amax,n_a);
-
-zstep  = 1/n_z;
-Fz     = linspace(zstep,1,n_z)'-zstep/2; 
-z      = (1 - Fz).^(-1/etta); % Each value of z has ztep weight
-zwght  = zstep;
-clear Fz zstep
 %--------------------------------------------------------------------------
 
 % First calculate the optimal capital for each talent z, given interest
