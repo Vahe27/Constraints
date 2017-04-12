@@ -3,6 +3,8 @@ tic
 rng(1)
 %% Parameters
 
+global r_bar deltta alfa nu gama
+
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
 betta    = 0.94;
@@ -18,30 +20,33 @@ gama     = nu - alfa;
 ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
 sigz     = 1;
+
 psi      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
+
 ettakap  = 0.01; % Two parameters that will be useful for the disutility from work
 sigkap   = 5;
 
 % The Default Parameters
 mueps    = 0; % if neps =1 mueps - probability, sigeps - value in function
 sigeps   = 1;
-neps     = 100;
+
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
+
 xi       = 0.2; % Exemption level
 
 
 % Grid Parameters
-amin     = 0.1;
-amax     = 100;
+amin    = 0.1;
+amax    = 100;
 na      = 250;
 nz      = 250;
 nkap    = 100;
 ne      = 3; % The number of occupations
+neps    = 100;
 
 % The Grids
 Amethod   = 1; % 1 if linear, 2 if logarithmic
-
 agrid    = adist(amin,amax,na,Amethod);
 
 X        = prodshock(mueps,sigeps,neps,EPSdist); % P and epsilon can also be vectors with size neps
@@ -64,12 +69,15 @@ N  = 30000;
 T  = 500;
 
 % Initial Values of the variables
-w        = 0.9;
-r        = 0.04;
-b        = 0.4;
+w0       = 0.9;
+r0       = 0.04;
+b0       = 0.4;
 %--------------------------------------------------------------------------
 
+%% The Consumption matrices
 %--------------------------------------------------------------------------
+
+profits = profcalc(zgrid,agrid,r0,w0)
 
 % First calculate the optimal capital for each talent z, given interest
 % rate r_bar, next, those with optimal capital more than their assets, will
