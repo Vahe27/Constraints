@@ -16,4 +16,4 @@ z(:,2)  = mu * (1 - Fz).^(-1/sigma); % Each value of z has ztep weight
 z(:,1)  = zstep;
 end
 
-y = [zstep*ones(n,1) z];
+y = [zstep*ones(n,1) z(:,2)];

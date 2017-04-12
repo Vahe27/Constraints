@@ -3,7 +3,7 @@ tic
 rng(1)
 %% Parameters
 
-global r_bar deltta alfa nu gama
+global r_bar deltta alfa nu gama Gama
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
@@ -54,7 +54,7 @@ P        = X(1,1);
 epsilon  = X(:,2);
 clear X
 
-X        = zdist(etta,sigz,nz,ZDist);
+X        = zdist(sigz,etta,nz,ZDist);
 Pz       = X(1,1);
 zgrid    = X(:,2);
 clear X
@@ -74,11 +74,16 @@ r0       = 0.04;
 b0       = 0.4;
 %--------------------------------------------------------------------------
 
+% Auxilliary Parameters
+Gama = (gama^gama)/((1+gama)^(1+gama));
+
 %% The Consumption matrices
 %--------------------------------------------------------------------------
 
-profits = profcalc(zgrid,agrid,r0,w0)
-
+X = profitcalc(zgrid,agrid,r0,w0);
+profits = X(:,:,1);
+indhire = X(:,:,2); % Index indicating whether the ind hires or not
+toc
 % First calculate the optimal capital for each talent z, given interest
 % rate r_bar, next, those with optimal capital more than their assets, will
 % borrow, find them and find how much they will borrow and calcualte profit
