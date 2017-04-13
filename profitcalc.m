@@ -1,5 +1,12 @@
 function y = profitcalc(z,a,r,w);
 
+% Created 12.04.2017
+% Last Update ----
+
+% Calculates the profits of each pair (z,a) for given borrowing interest
+% rate and wage. The imputs are z(nz x 1), a(1 x na) r(1x1) w(1x1). Output
+% is 
+
 global r_bar deltta alfa nu gama Gama
 
 % Invested capital of own account workers (with no employee) under borrowing

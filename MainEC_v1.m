@@ -3,12 +3,16 @@ tic
 rng(1)
 %% Parameters
 
-global r_bar deltta alfa nu gama Gama
+global r_bar deltta alfa nu gama Gama xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
 betta    = 0.94;
 sigma    = 1; % Risk aversion coefficient, log utility if 1
+
+% Unemployment tax and benefit
+tau        = 0.05;
+b0         = 0.5;
 
 % Production Parameters
 deltta   = 0.06;
@@ -27,8 +31,8 @@ ettakap  = 0.01; % Two parameters that will be useful for the disutility from wo
 sigkap   = 5;
 
 % The Default Parameters
-mueps    = 0; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = 1;
+mueps    = 0.2; % if neps =1 mueps - probability, sigeps - value in function
+sigeps   = 5;
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -41,9 +45,9 @@ amin    = 0.1;
 amax    = 100;
 na      = 250;
 nz      = 250;
-nkap    = 100;
+nkap    = 10;
 ne      = 3; % The number of occupations
-neps    = 100;
+neps    = 1;
 
 % The Grids
 Amethod   = 1; % 1 if linear, 2 if logarithmic
@@ -80,73 +84,54 @@ Gama = (gama^gama)/((1+gama)^(1+gama));
 %% The Consumption matrices
 %--------------------------------------------------------------------------
 
+% Here businc are as in the notes, they include both business profits and
+% income from depositing left-over assets, doesn't include taxes 
+
 X = profitcalc(zgrid,agrid,r0,w0);
-profits = X(:,:,1);
-indhire = X(:,:,2); % Index indicating whether the ind hires or not
-toc
-% First calculate the optimal capital for each talent z, given interest
-% rate r_bar, next, those with optimal capital more than their assets, will
-% borrow, find them and find how much they will borrow and calcualte profit
-capital = (gama^gama/((1+gama)^(1+gama)))^(1/(1-alfa))*((r_bar+deltta)/alfa)...
-    ^(1/(alfa-1)).*z.^(1/(1-alfa));
+businc = X(:,:,1);
+indhire = X(:,:,2); % Index indicating whether the individual hires or not
+clear X
 
-capital = repmat(capital,1,n_a);
+% The Shock and after-shock businc - busincP. I here allow for
+% heterogeneity in shocks, meaning that neps>1 is possible
 
-invest_semp(:,:,1) = ((deltta+r)/alfa)^(1/(alfa-1)) * (((1+gama)^(1+gama))/...
-  (gama^gama))^(1/(alfa-1))*repmat(z.^(1/(1-alfa)),1,n_a);
-invest_semp(:,:,2) = (repmat(agrid,n_z,1)>=capital).*capital; 
+X = aftershockinc(businc, epsilon, neps, nz, na); % X(nz x na x neps) 
+busincP = X; 
+clear X
 
-% There are three types of agents: first are those who have enough capital
-% under rbar, so they will never borrow even if r=rbar, second are those
-% who'd borrow under rbar but won't under r, then they will operate firms
-% with no borrowing x=0, lastly, those who'd borrow under r (x>0). The
-% borrowing choices of the first 2 types are given in invest_semp(:,:,2)
-% and the borrowing choices of the 3rd group are given in
-% invest_semp(:,:,1). The idea is that for the second group MPK(x+a)>rbar
-% but MPK(x+a)<r
+consw = zeros(nz,na,na);
+consu = zeros(nz,na,na);
+conss = zeros(nz,na,na);
 
-invest_semp(:,:,1) = (repmat(agrid,n_z,1)<invest_semp(:,:,1)).*invest_semp(:,:,1);
-invest_semp(:,:,2) = invest_semp(:,:,2) + (invest_semp(:,:,1)==0).*...
-    (invest_semp(:,:,2)==0).*repmat(agrid,n_z,1);
+consw = w0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
+,1,na),1,na,1) - tau;
 
-profit_semp(:,:,1) = gama^gama/((1+gama)^(1+gama)).*repmat(z,1,n_a).*...
-    invest_semp(:,:,1).^alfa - (r+deltta).*(invest_semp(:,:,1)-repmat(agrid,n_z,1))...
-    + repmat(agrid*(1-deltta),n_z,1);
-
-profit_semp(:,:,1) = profit_semp(:,:,1).*(invest_semp(:,:,1)>0);
-
-profit_semp(:,:,2) = gama^gama/((1+gama)^(1+gama)).*repmat(z,1,n_a).*...
-    invest_semp(:,:,2).^alfa + (1-deltta)*invest_semp(:,:,2) - (1+r_bar)...
-    *(invest_semp(:,:,2) - repmat(agrid,n_z,1)); 
-
-profit_semp(:,:,2) = profit_semp(:,:,2).*(invest_semp(:,:,2)>0);
-
-inc_semp = profit_semp(:,:,1) + profit_semp(:,:,2);
-
-
-profit_bus = z.^(1/(1-nu)) * (1-nu) * ((deltta+r_bar)/alfa)^((nu)/(nu-1)) * ...
-    (alfa*w/(gama*(deltta+r_bar)))^(gama/(nu-1));
-
-inc_bus = repmat(profit_bus,1,n_a) + repmat(agrid*(1+r_bar),n_z,1);
+consu = b0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
+,1,na),1,na,1);
 
 
 
-cons_w =(repmat(agrid*(1+r_bar),n_z,1,n_a)+ w - repmat(reshape(agrid,1,1,n_a),n_z,n_a,1));
-Uw     = log(cons_w);
-Uwp    = log(cons_w-kappa);
-Uw(cons_w<0)        = -100;
-Uwp(cons_w-kappa<0) = -100;
-%clear cons_w
-cons_s = repmat(inc_semp,1,1,n_a) - repmat(reshape(agrid,1,1,n_a),n_z,n_a,1);
-Us     = log(cons_s);
-Usp    = log(cons_s-kappa);
-Usp(cons_s-kappa<0) = -100;
-Us(cons_s<0)        = -100;
-%clear cons_s
-cons_b = repmat(inc_bus,1,1,n_a) - repmat(reshape(agrid,1,1,n_a),n_z,n_a,1);
-Ub     = log(cons_b);
-Ub(cons_b<0) = -100;
-%clear cons_b
+conss = repmat(businc,1,1,na) - repmat(reshape(agrid,1,1,na),nz,na,1)...
+    - tau;
+
+conssP = zeros(nz,na,na,neps);
+
+for ii = 1:neps
+
+conssP(:,:,:,ii) = repmat(busincP(:,:,ii),1,1,na) - repmat(reshape(agrid...
+    ,1,1,na),nz,na,1) - tau;
+end
+
+
+Uw  = ucalc(consw, sigma);
+Uu  = ucalc(consu, sigma);
+Us  = ucalc(conss, sigma);
+UsP = ucalc(conssP, sigma);
+
+clear consw consu conss conssP
+
+%--------------------------------------------------------------------------
+%% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
 
 V = zeros(n_z,n_a);
