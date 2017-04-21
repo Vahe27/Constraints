@@ -155,6 +155,7 @@ iterV = iterV+1;
 
 end;
 
+tic
 Vflag = 1;
 Nold  = N0;
 Sold  = S0;
@@ -289,6 +290,8 @@ w0 = (wmin + wmax)/2;
 
 iterL = iterL+1
 distL
+
+toc
 end;
 
 %% The Capital Demand, Supply and the Borrowing Interest Rate

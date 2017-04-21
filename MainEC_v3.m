@@ -37,8 +37,8 @@ ettakap  = 0.05; % Two parameters that will be useful for the disutility from wo
 sigkap   = 5;
 
 % The Default Parameters
-mueps    = 0.2; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = 5;
+mueps    = [0.8 0.1 0.1]; % if neps =1 mueps - probability, sigeps - value in function
+sigeps   = [0 5 10];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -52,7 +52,7 @@ na      = 70;
 nz      = 100;
 nkap    = 10;
 ne      = 3; % The number of occupations
-neps    = 1;
+neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
 
 % The Grids
@@ -60,7 +60,7 @@ Amethod   = 1; % 1 if linear, 2 if logarithmic
 agrid    = adist(amin,amax,na,Amethod);
 
 X        = prodshock(mueps,sigeps,neps,EPSdist); % P and epsilon can also be vectors with size neps
-P        = X(1,1);
+P        = X(:,1);
 epsilon  = X(:,2);
 clear X
 
@@ -80,15 +80,8 @@ T  = 500;
 
 % Initial Values of the variables
 w0       = 0.9;
-r0       = 0.04;
+r0       = [0.04 0.05 0.06];
 b0       = 0.3;
-%--------------------------------------------------------------------------
-
-% Auxilliary Parameters
-
-Gama = (gama^gama)/((1+gama)^(1+gama));
-
-estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
 
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
@@ -98,7 +91,19 @@ TT = 250;
 nA = 400;
 
 Agrid = adist(amin,amax,nA,Amethod);
+%--------------------------------------------------------------------------
 
+% Auxilliary Parameters
+
+Gama = (gama^gama)/((1+gama)^(1+gama));
+
+estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
+
+% As a benchmark for approximation, I choose highest shock, eps=eps_max and
+% low borrowing rate r_min>r_bar
+
+bnr   = 1;
+bneps = 3;
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
@@ -111,14 +116,14 @@ bigz = zstatdist(zgrid, nz,psi,NN,TT);
 % income from depositing left-over assets, doesn't include taxes 
 
 X = profitcalc(zgrid,agrid,r0,w0);
-businc = X(:,:,1);
-indhire = X(:,:,2); % Index indicating whether the individual hires or not
+businc = X(:,:,:,1);
+indhire = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
 
 % The Shock and after-shock businc - busincP. I here allow for
 % heterogeneity in shocks, meaning that neps>1 is possible
 
-X = aftershockinc(businc, epsilon, neps, nz, na); % X(nz x na x neps) 
+X = aftershockinc(businc, epsilon, neps); % X(nz x na x nr x neps) 
 busincP = X; 
 clear X
 
@@ -132,24 +137,26 @@ consw = w0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
 consu = b0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
 ,1,na),1,na,1);
 
+% Need to choose a benchmark for the value function iteration. The strategy
+% is to calculate the optimal cons and saving for a given asset level and
+% given shock and borrowing rate, conditional on managerial talent, and
+% then interpolate the "Cash-on-hand" after the shock and get saving and
+% consumption choice for other shock and borrowing rate combinations.
 
+% The argument is: given z, having asset a1, and facing eps1 r1 is
+% equivalent to having asset a2 and facing eps2, r2 as long as
+% pi(z,a1,eps1,r1) = pi(z,a2,eps2,r2) in terms of consumption and
+% investment choice.
 
-conss = repmat(businc,1,1,na) - repmat(reshape(agrid,1,1,na),nz,na,1)...
-    - tau;
+conssB = repmat(busincP(:,:,bnr,bneps),1,1,na) - ...
+    repmat(reshape(agrid,1,1,na),nz,na,1)  - tau;
 
-conssP = zeros(nz,na,na,neps);
-
-for ii = 1:neps
-
-conssP(:,:,:,ii) = repmat(busincP(:,:,ii),1,1,na) - repmat(reshape(agrid...
-    ,1,1,na),nz,na,1) - tau;
-end
-
+Atilde  = assetaprox(busincP,agrid,bnr,bneps,nz,na,nr,neps);
+bench   = busincP(:,:,bnr,bneps);
 
 Uw  = ucalc(consw, sigma);
 Uu  = ucalc(consu, sigma);
-Us0  = ucalc(conss, sigma);
-UsP = ucalc(conssP, sigma);
+UsB = ucalc(conssB, sigma);
 
 
 % Adding the kappa dimension
@@ -158,15 +165,9 @@ Uwk = disU(Uw,nz,na,nkap,kapgrid);
 
 Uuk = repmat(Uu,nz,1,1,nkap);
 
+UsBk = repmat(UsB,1,1,1,nkap);
 
-% Calculate the expected utility after the shock, given the decision to
-% default has already been made. The probabilities of the shocks are equal
-% so in case if the shock hits, the expected value is the arithmetic mean
-Us  = (1-P)*Us0 + P*sum(UsP,4)/neps;
-
-Usk = repmat(Us,1,1,1,nkap);
-
-clear consw consu conss conssP Uu Uw Us0 UsP Us
+clear consw consu conssB Uu Uw UsB
 %--------------------------------------------------------------------------
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
@@ -202,6 +203,7 @@ S0 = S;
 
 end
 
+%%%%%%%%%%NEED TO CONTINUE HERE IF FAIL WITH THE OTHER OPTION%%%%%%%%%%%%%%
 
 maxiter_v = 200;
 iter_v  = 1;
@@ -232,9 +234,11 @@ W = reshape(W,nz,na,nkap);
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
 N = reshape(N,nz,na,nkap);
 
-[S IS] = max(Usk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
+[S IS] = max(UsBk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
 S = reshape(S,nz,na,nkap);
+
+
 
 
 %{   

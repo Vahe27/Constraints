@@ -1,10 +1,10 @@
 function y = profitcalc(z,a,r,w);
 
 % Created 12.04.2017
-% Last Update ----
+% Last Update 20.04.2017 Make r multidimensional (signals)
 
 % Calculates the profits of each pair (z,a) for given borrowing interest
-% rate and wage. The imputs are z(nz x 1), a(1 x na) r(1x1) w(1x1). Output
+% rate and wage. The imputs are z(nz x 1), a(1 x na) r(nrx1) w(1x1). Output
 % is 
 
 global r_bar deltta alfa nu gama Gama
@@ -16,43 +16,69 @@ global r_bar deltta alfa nu gama Gama
 
 na = length(a);
 nz = length(z);
+nr = length(r);
+profit_own = zeros(nz,na,nr);
+profit_emp = zeros(nz,na,nr);
 
 % Eq 2 in notes
 kownacc(:,:,1) = (alfa/(r_bar + deltta))^(1/(1-alfa)) * Gama^(1/(1-alfa))...
     * repmat(z .^ (1/(1-alfa)),1,na);
 
-kownacc(:,:,2) = (alfa/(r + deltta))^(1/(1-alfa)) * Gama^(1/(1-alfa))...
-    * repmat(z .^ (1/(1-alfa)),1,na);
+for ii = 1:nr
+kownacc(:,:,1+ii) = (alfa/(r(ii) + deltta))^(1/(1-alfa)) ...
+    * Gama^(1/(1-alfa)) * repmat(z .^ (1/(1-alfa)),1,na);
+end
 
-Kown     = zeros(nz,na); % (x+a)
-Kownmina = zeros(nz,na); % x = K - a to calculate the incomes
+Kown     = zeros(nz,na,nr+1); % (x+a)
+Kownmina = zeros(nz,na,nr+1); % x = K - a to calculate the incomes
 
 % Those who save
-Temp = kownacc(:,:,1);
-Temp2 = repmat(a,nz,1) - kownacc(:,:,1); 
+Temp  = kownacc(:,:,1);
+Temp2 = repmat(a,nz,1) - kownacc(:,:,1);
+TKown = Kown(:,:,1);
+TKownmina = Kownmina(:,:,1);
 
-Kown(Temp2>=0) = Temp(Temp2>=0);
-Kownmina(Temp2>0) = Temp2(Temp2>0) .* (1 + r_bar); 
+TKown(Temp2>=0) = Temp(Temp2>=0);
+TKownmina(Temp2>0) = Temp2(Temp2>0) .* (1 + r_bar); 
 
+Kown(:,:,1)     = TKown;
+Kownmina(:,:,1) = TKownmina;
 % Those who borrow
-Temp = kownacc(:,:,2);
-Temp2 = repmat(a,nz,1) - kownacc(:,:,2); 
 
-Kown(Temp2<0) = Temp(Temp2<0);
-Kownmina(Temp2<0) =  Temp2(Temp2<0) .* (1+r);
+for ii = 1:nr
+Temp = kownacc(:,:,ii+1);
+Temp2 = repmat(a,nz,1) - kownacc(:,:,ii+1); 
+TKown = Kown(:,:,ii+1);
+TKownmina = Kownmina(:,:,ii+1);
+
+TKown(Temp2<0)     = Temp(Temp2<0);
+TKownmina(Temp2<0) =  Temp2(Temp2<0) .* (1+r(ii));
 
 % Those who invest all
 Temp = repmat(a,nz,1);
 
-Kown(kownacc(:,:,2)<=Temp & kownacc(:,:,1)>=Temp) = Temp(kownacc(:,:,2)<=Temp...
-    & kownacc(:,:,1)>=Temp);
+TKown(kownacc(:,:,ii+1)<=Temp & kownacc(:,:,1)>=Temp) = ...
+    Temp(kownacc(:,:,ii+1)<=Temp & kownacc(:,:,1)>=Temp);
+
+Kown(:,:,ii+1)     = TKown;
+Kownmina(:,:,ii+1) = TKownmina;
 
 
 % The Profit given in (6)
-profit_own = repmat( Gama * z,1,na) .* (Kown .^ alfa) + (1 - deltta) *...
-    Kown + Kownmina;
-    
-clear Temp Temp2
+clear TKown TKownmina
+
+if sum(sum(Kown(:,:,ii+1)>0))~=sum(sum(Kown(:,:,1)==0))
+    error('check the profit code')
+end
+
+TKown = Kown(:,:,1) + Kown(:,:,ii+1);
+TKownmina = Kownmina(:,:,1) + Kownmina(:,:,ii+1);
+
+profit_own(:,:,ii) = repmat(Gama * z,1,na) .* (TKown .^ alfa) + ...
+    (1 - deltta) * TKown + TKownmina;
+end    
+
+clear Temp Temp2 TKown TKownmina
 %--------------------------------------------------------------------------
 % Employers
 
@@ -63,48 +89,75 @@ clear Temp Temp2
 kemp(:,:,1) = repmat(z .^ (1/(1 - nu)),1,na) * (alfa/(deltta + r_bar))^...
     ((1 - gama)/(1 - nu)) * (gama/w) ^ (gama/(1-nu));
 
-kemp(:,:,2) = repmat(z .^ (1/(1 - nu)),1,na) * (alfa/(deltta + r))^...
-    ((1 - gama)/(1 - nu)) * (gama/w) ^ (gama/(1-nu));
+for ii = 1:nr
+kemp(:,:,ii+1) = repmat(z .^ (1/(1 - nu)),1,na) * (alfa/(deltta + r(ii)))...
+   ^((1 - gama)/(1 - nu)) * (gama/w) ^ (gama/(1-nu));
+end
 
-Kemp        = zeros(nz,na);
-Kempmina    = zeros(nz,na);
+Kemp        = zeros(nz,na,nr+1);
+Kempmina    = zeros(nz,na,nr+1);
 
 % Those who save
-Temp  = kemp(:,:,1);
-Temp2 = repmat(a,nz,1) - kemp(:,:,1);
+Temp      = kemp(:,:,1);
+Temp2     = repmat(a,nz,1) - kemp(:,:,1);
+TKemp     = Kemp(:,:,1);
+TKempmina = Kempmina(:,:,1);
 
-Kemp(Temp2>=0) = Temp(Temp2>=0);
-Kempmina(Temp2>=0) = Temp2(Temp2>=0) * (1+r_bar);
+
+TKemp(Temp2>=0) = Temp(Temp2>=0);
+TKempmina(Temp2>=0) = Temp2(Temp2>=0) * (1+r_bar);
+
+Kemp(:,:,1) = TKemp;
+Kempmina(:,:,1) = TKempmina;
+
 
 % Those who borrow
-Temp  = kemp(:,:,2);
-Temp2 = repmat(a,nz,1) - kemp(:,:,2);
+for ii = 1:nr
 
-Kemp(Temp2<0) = Temp(Temp2<0);
-Kempmina(Temp2<0) = Temp2(Temp2<0) * (1 + r);
+Temp  = kemp(:,:,ii+1);
+Temp2 = repmat(a,nz,1) - kemp(:,:,ii+1);
+TKemp = Kemp(:,:,ii+1);
+TKempmina = Kempmina(:,:,ii+1); 
+
+TKemp(Temp2<0) = Temp(Temp2<0);
+Kempmina(Temp2<0) = Temp2(Temp2<0) * (1 + r(ii));
 
 
 % Those who invest all
 Temp = repmat(a,nz,1);
 
-Kemp(kemp(:,:,1)>= Temp & kemp(:,:,2)<=Temp) = Temp(kemp(:,:,1)>= Temp & ...
-    kemp(:,:,2)<=Temp);
+TKemp(kemp(:,:,1)>= Temp & kemp(:,:,ii+1)<=Temp) =...
+    Temp(kemp(:,:,1)>= Temp & kemp(:,:,ii+1)<=Temp);
 
+Kemp(:,:,ii+1)     = TKemp;
+Kempmina(:,:,ii+1) = TKempmina;
+
+clear TKemp TKempmina
 % The profit given in (7)
 
+if sum(sum(Kemp(:,:,ii+1)>0))~=sum(sum(Kemp(:,:,1)==0))
+    error('check the profit code')
+end
+
+TKemp = Kemp(:,:,1) + Kemp(:,:,ii+1);
+TKempmina = Kempmina(:,:,1) + Kempmina(:,:,ii+1);
+
+
 % Labor imput 7(b)
-L = (gama/w)^(1/(1-gama)) * repmat(z.^(1/(1-gama)),1,na) .* (Kemp.^...
+L = (gama/w)^(1/(1-gama)) * repmat(z.^(1/(1-gama)),1,na) .* (TKemp.^...
     (alfa/(1-gama))); 
 
-profit_emp = repmat(z,1,na) .* Kemp.^(alfa).* L.^(gama) - w*L + Kempmina...
-    + (1 - deltta) * Kemp;
+profit_emp(:,:,ii) = repmat(z,1,na) .* TKemp.^(alfa).* L.^(gama) - w*L...
+    + TKempmina + (1 - deltta) * TKemp;
+
+end
 %--------------------------------------------------------------------------
 
 % First matrix gives the profits, second matrix gives the decisions to hire
 % or not
 
-y(:,:,1) = max(profit_emp,profit_own);
-y(:,:,2) = (profit_emp>profit_own);
+y(:,:,:,1) = max(profit_emp,profit_own);
+y(:,:,:,2) = (profit_emp>profit_own);
 
 
 
