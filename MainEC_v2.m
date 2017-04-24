@@ -80,7 +80,7 @@ T  = 500;
 
 % Initial Values of the variables
 w0       = 0.9;
-r0       = [0.04 0.05 0.06];
+r0       = [0.045 0.05 0.06];
 b0       = 0.3;
 
 %--------------------------------------------------------------------------
@@ -95,6 +95,7 @@ Agrid = adist(amin,amax,nA,Amethod);
 
 % Auxilliary Parameters
 
+Pr   = [0.2;0.6;0.2];
 Gama = (gama^gama)/((1+gama)^(1+gama));
 
 estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
@@ -168,6 +169,22 @@ Uuk = repmat(Uu,nz,1,1,nkap);
 UsBk = repmat(UsB,1,1,1,nkap);
 
 clear consw consu conssB Uu Uw UsB
+
+%--------------------------------------------------------------------------
+
+% Auxilliary Parameters II
+
+ATILDE       = repmat(reshape(Atilde,nz,na*nr*neps),1,1,nkap);
+kap_array    = repmat(reshape(kapgrid,1,1,nkap),nz,na,1);
+a_array      = repmat(agrid,nz,1,nkap);
+z_array      = repmat(zgrid,1,na,nkap);
+z_arrayint   = repmat(zgrid,1,length(ATILDE),nkap);
+kap_arrayint = repmat(reshape(kapgrid,1,1,nkap),nz,length(ATILDE),1);
+TS           = zeros(nz,length(ATILDE),nkap);
+
+Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
+
 %--------------------------------------------------------------------------
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
@@ -178,12 +195,14 @@ Vw = Vu+0.25;
 W  = log((1-betta)*w0)/((1-betta)*(1-lambda))*ones(nz,na,nkap);
 N  = log((1-betta)*b0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
 S  = log((1-betta)*w0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
+ES = S;
 
 Vu0 = zeros(nz,na,nkap);
 Vw0 = Vu0 + 0.25;
 W0  = Vw0 + 0.25;
 N0  = W0 + 0.25;
 S0  = N0 + 0.25;
+ES0 = S0;
 
 elseif Vflag == 1
     
@@ -192,7 +211,7 @@ Vu0 = Vuold;
 W0  = Wold;
 N0  = Nold;
 S0  = Sold;
-
+ES0 = ESold;
 elseif Vflag == 2
     
 load('ValFun')
@@ -200,20 +219,20 @@ load('ValFun')
 W0 = W;
 N0 = N;
 S0 = S;
-
+ES0 = ES;
 end
 
 %%%%%%%%%%NEED TO CONTINUE HERE IF FAIL WITH THE OTHER OPTION%%%%%%%%%%%%%%
 
-maxiter_v = 200;
+maxiter_v = 1000;
 iter_v  = 1;
 tol_v   = 1e-6;
 dist_v  = 500;
 tic
 while iter_v<maxiter_v && dist_v>tol_v
 
-Vw = max(W0,max(S0,N0));
-Vu = max(S0,N0);
+Vw = max(W0,max(ES0,N0));
+Vu = max(ES0,N0);
 
 % Can't multiply 3d matrices that's why I first reshape Vw(nz,na,nkap) to
 % Vw(nz,na*nkap) then calculate the expected values wrt z, then reshape
@@ -228,16 +247,21 @@ EVu = (1-psi) * Vu + psi * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
 
 [W IW] = max(Uwk + repmat(reshape(betta * ((1 - lambda) * EVw + lambda *...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-W = reshape(W,nz,na,nkap);
+W      = reshape(W,nz,na,nkap);
 
 [N IN] = max(Uuk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-N = reshape(N,nz,na,nkap);
+N      = reshape(N,nz,na,nkap);
 
 [S IS] = max(UsBk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-S = reshape(S,nz,na,nkap);
+S      = reshape(S,nz,na,nkap);
 
+F      = griddedInterpolant(z_array,a_array,kap_array,S,'linear');
+
+TS     = reshape(F(z_arrayint,ATILDE,kap_arrayint),nz,na,nr,neps,nkap);
+
+ES     = reshape(sum(sum(TS .* Peps_int,4).* Pr_int,3),nz,na,nkap);
 
 
 
@@ -261,14 +285,14 @@ S = reshape(S,nz,na,nkap);
 
 distVW = max(max(max(abs(W0 - W))));
 distVN = max(max(max(abs(N0 - N))));
-distVS = max(max(max(abs(S0 - S))));
+distVS = max(max(max(abs(ES0 - ES))));
 
 dist_v = max(distVW,max(distVN,distVS));
 
-W0 = W;
-N0 = N;
-S0 = S;
-
+W0  = W;
+N0  = N;
+S0  = S;
+ES0 = ES;
 iter_v = iter_v + 1;
 
 end;
@@ -277,7 +301,7 @@ toc
 clear Vb0 Vs0 Vw0 Vtemp EVtemp Vbtemp EVbtemp Temp1 Temp2 EV EVb
 
 if Vflag == 2
-    save('ValFun','S','N','W','Vw','Vu');
+    save('ValFun','S','N','W','Vw','Vu','ES');
 end;
 
 Vflag = 1;
@@ -286,10 +310,11 @@ Sold  = S;
 Wold  = W;
 Vuold = Vu;
 Vwold = Vw;
+ESold = ES;
 
-work  = W >= max(S,N);
-semp  = S > max(W,N);
-unemp = N > max(W,S);
+work  = W >= max(ES,N);
+semp  = ES > max(W,N);
+unemp = N > max(W,ES);
 
 
 %%---------------------------Stationary Distribution-----------------------
