@@ -2,6 +2,7 @@ function y = profitcalc(z,a,r,w);
 
 % Created 12.04.2017
 % Last Update 20.04.2017 Make r multidimensional (signals)
+% Last Update 24.04.2017 In line 124 replaced Kempmina with TKempmina
 
 % Calculates the profits of each pair (z,a) for given borrowing interest
 % rate and wage. The imputs are z(nz x 1), a(1 x na) r(nrx1) w(1x1). Output
@@ -110,7 +111,7 @@ TKempmina(Temp2>=0) = Temp2(Temp2>=0) * (1+r_bar);
 Kemp(:,:,1) = TKemp;
 Kempmina(:,:,1) = TKempmina;
 
-
+clear Temp Temp2
 % Those who borrow
 for ii = 1:nr
 
@@ -120,8 +121,9 @@ TKemp = Kemp(:,:,ii+1);
 TKempmina = Kempmina(:,:,ii+1); 
 
 TKemp(Temp2<0) = Temp(Temp2<0);
-Kempmina(Temp2<0) = Temp2(Temp2<0) * (1 + r(ii));
+TKempmina(Temp2<0) = Temp2(Temp2<0) * (1 + r(ii));
 
+clear Temp Temp2
 
 % Those who invest all
 Temp = repmat(a,nz,1);

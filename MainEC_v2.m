@@ -48,9 +48,9 @@ xi       = 0.2; % Exemption level
 % Grid Parameters
 amin    = 0.1;
 amax    = 100;
-na      = 70;
-nz      = 100;
-nkap    = 10;
+na      = 300;
+nz      = 10;
+nkap    = 5;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
@@ -80,7 +80,7 @@ T  = 500;
 
 % Initial Values of the variables
 w0       = 0.9;
-r0       = [0.045 0.05 0.06];
+r0       = [0.04 0.05 0.06];
 b0       = 0.3;
 
 %--------------------------------------------------------------------------
@@ -184,7 +184,7 @@ TS           = zeros(nz,length(ATILDE),nkap);
 
 Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
 Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
-
+toc
 %--------------------------------------------------------------------------
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
@@ -226,9 +226,9 @@ end
 
 maxiter_v = 1000;
 iter_v  = 1;
-tol_v   = 1e-6;
+tol_v   = 1e-5;
 dist_v  = 500;
-tic
+
 while iter_v<maxiter_v && dist_v>tol_v
 
 Vw = max(W0,max(ES0,N0));
@@ -294,6 +294,7 @@ N0  = N;
 S0  = S;
 ES0 = ES;
 iter_v = iter_v + 1;
+
 
 end;
 toc
