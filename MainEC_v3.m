@@ -11,7 +11,7 @@ global r_bar deltta alfa nu gama Gama xi
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
 betta    = 0.95;
-sigma    = 1; % Risk aversion coefficient, log utility if 1
+sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Unemployment tax and benefit
 tau        = 0.05;
@@ -38,7 +38,7 @@ sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.8 0.1 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 5 10];
+sigeps   = [0 0.05 0.10];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -48,9 +48,9 @@ xi       = 0.2; % Exemption level
 % Grid Parameters
 amin    = 0.1;
 amax    = 100;
-na      = 70;
-nz      = 100;
-nkap    = 10;
+na      = 200;
+nz      = 10;
+nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
@@ -73,6 +73,7 @@ X        = kapdist(ettakap,sigkap,nkap,KAPdist);
 Pkap     = X(1,1); 
 kapgrid  = X(:,2);
 clear X
+%kapgrid(1) = 0;
 
 % Stationary Distribution Parameters
 N  = 30000;
@@ -207,7 +208,7 @@ end
 
 maxiter_v = 200;
 iter_v  = 1;
-tol_v   = 1e-6;
+tol_v   = 1e-3;
 dist_v  = 500;
 tic
 while iter_v<maxiter_v && dist_v>tol_v
@@ -259,9 +260,9 @@ N = reshape(N,nz,na,nkap);
 S = reshape(S,nz,na,nkap);
 %}
 
-distVW = max(max(max(abs(W0 - W))));
-distVN = max(max(max(abs(N0 - N))));
-distVS = max(max(max(abs(S0 - S))));
+distVW = max(max(max(abs((W0 - W)./W))));
+distVN = max(max(max(abs((N0 - N)./N))));
+distVS = max(max(max(abs((S0 - S))./S)));
 
 dist_v = max(distVW,max(distVN,distVS));
 

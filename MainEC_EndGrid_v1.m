@@ -11,7 +11,7 @@ global r_bar deltta alfa nu gama Gama xi
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
 betta    = 0.95;
-sigma    = 1; % Risk aversion coefficient, log utility if 1
+sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Unemployment tax and benefit
 tau        = 0.05;
@@ -31,14 +31,14 @@ ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
 sigz     = 1;
 
-psi      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
+PSI      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
 
 ettakap  = 0.05; % Two parameters that will be useful for the disutility from work
 sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.8 0.1 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 5 10];
+sigeps   = [0 0.1 5];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -46,18 +46,18 @@ KAPdist  = 1;
 xi       = 0.2; % Exemption level
 
 % Grid Parameters
-amin    = 0.1;
-amax    = 100;
-na      = 70;
-nz      = 100;
-nkap    = 10;
+apmin    = 0.1;
+apmax    = 100;
+na      = 580;
+nz      = 20;
+nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
 
 % The Grids
 Amethod   = 1; % 1 if linear, 2 if logarithmic
-agrid    = adist(amin,amax,na,Amethod);
+apgrid    = adist(apmin,apmax,na,Amethod);
 
 X        = prodshock(mueps,sigeps,neps,EPSdist); % P and epsilon can also be vectors with size neps
 P        = X(:,1);
@@ -65,7 +65,7 @@ epsilon  = X(:,2);
 clear X
 
 X        = zdist(sigz,etta,nz,ZDist);
-Pz       = X(1,1);
+Pz       = X(:,1);
 zgrid    = X(:,2);
 clear X
 
@@ -80,7 +80,13 @@ T  = 500;
 
 % Initial Values of the variables
 w0       = 0.9;
-r0       = [0.04 0.05 0.06];
+
+% Probabilities of facing a given borrowing rate
+Pr = rand(nr,nz);
+Pr = Pr./repmat(sum(Pr,1),nr,1);
+
+
+r0       = [0.04 0.05 0.09];
 b0       = 0.3;
 
 %--------------------------------------------------------------------------
@@ -90,32 +96,44 @@ TT = 250;
 
 nA = 400;
 
-Agrid = adist(amin,amax,nA,Amethod);
-%--------------------------------------------------------------------------
+Apgrid = adist(apmin,apmax,nA,Amethod);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Parameters Fixed for the CHECKS
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--------------------------------------------------------------------------
 % Auxilliary Parameters
 
 Gama = (gama^gama)/((1+gama)^(1+gama));
 
 estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
 
-% As a benchmark for approximation, I choose highest shock, eps=eps_max and
-% low borrowing rate r_min>r_bar
+APgrid = repmat(apgrid',1,nz,nkap);
+Zgrid  = repmat(zgrid',na,1,nkap);
+KAPgrid = repmat(reshape(kapgrid,1,1,nkap),na,nz,1);
 
-bnr   = 1;
-bneps = 3;
+dta = 0.0001; % for derivatives
+PR = repmat(Pr,1,1,neps,na,nkap);
+P  = P./sum(P);
+PP = repmat(reshape(P,1,1,neps),1,nz,1,na,nkap);
+PZ = repmat(Pz',na,1,nkap);
+
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
-bigz = zstatdist(zgrid, nz,psi,NN,TT); 
+bigz = zstatdist(zgrid, nz,PSI,NN,TT); 
 
-%% The Consumption matrices
+
+
+%% The Income matrices
 %--------------------------------------------------------------------------
+winc = w0 + (1+r_bar)*apgrid' - tau;
+uinc = b0 + (1+r_bar)*apgrid';
 
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
 
-X = profitcalc(zgrid,agrid,r0,w0);
+X = profitcalc(zgrid,apgrid,r0,w0);
 businc = X(:,:,:,1);
 indhire = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
@@ -126,169 +144,135 @@ clear X
 X = aftershockinc(businc, epsilon, neps); % X(nz x na x nr x neps) 
 busincP = X; 
 clear X
-
-consw = zeros(nz,na,na);
-consu = zeros(nz,na,na);
-conss = zeros(nz,na,na);
-
-consw = w0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
-,1,na),1,na,1) - tau;
-
-consu = b0 + (1 + r_bar) * repmat(agrid,1,1,na) - repmat(reshape(agrid,1 ...
-,1,na),1,na,1);
-
-% Need to choose a benchmark for the value function iteration. The strategy
-% is to calculate the optimal cons and saving for a given asset level and
-% given shock and borrowing rate, conditional on managerial talent, and
-% then interpolate the "Cash-on-hand" after the shock and get saving and
-% consumption choice for other shock and borrowing rate combinations.
-
-% The argument is: given z, having asset a1, and facing eps1 r1 is
-% equivalent to having asset a2 and facing eps2, r2 as long as
-% pi(z,a1,eps1,r1) = pi(z,a2,eps2,r2) in terms of consumption and
-% investment choice.
-
-conssB = repmat(busincP(:,:,bnr,bneps),1,1,na) - ...
-    repmat(reshape(agrid,1,1,na),nz,na,1)  - tau;
-
-Atilde  = assetaprox(busincP,agrid,bnr,bneps,nz,na,nr,neps);
-bench   = busincP(:,:,bnr,bneps);
-
-Uw  = ucalc(consw, sigma);
-Uu  = ucalc(consu, sigma);
-UsB = ucalc(conssB, sigma);
-
-
-% Adding the kappa dimension
-
-Uwk = disU(Uw,nz,na,nkap,kapgrid);
-
-Uuk = repmat(Uu,nz,1,1,nkap);
-
-UsBk = repmat(UsB,1,1,1,nkap);
-
-clear consw consu conssB Uu Uw UsB
-%--------------------------------------------------------------------------
-%% Value Function Iteration
-% --------------------Value Funcion Interation-----------------------------
+busincP = permute(busincP,[2 1 3 4]); % na x nz x nr x neps
 
 if Vflag == 0
-Vu = zeros(nz,na,nkap);
-Vw = Vu+0.25;
-W  = log((1-betta)*w0)/((1-betta)*(1-lambda))*ones(nz,na,nkap);
-N  = log((1-betta)*b0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
-S  = log((1-betta)*w0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
-
-Vu0 = zeros(nz,na,nkap);
-Vw0 = Vu0 + 0.25;
-W0  = Vw0 + 0.25;
-N0  = W0 + 0.25;
-S0  = N0 + 0.25;
-
+EV1 = repmat(ucalc(winc,sigma),1,nz,nkap);
+EV2 = repmat(ucalc(busincP(:,:,1,1),sigma),1,1,nkap);
 elseif Vflag == 1
-    
-Vw0 = Vwold;
-Vu0 = Vuold;
-W0  = Wold;
-N0  = Nold;
-S0  = Sold;
-
+EV1 = EV1old;
+EV2 = EV2old;
 elseif Vflag == 2
-    
-load('ValFun')
+    load('VFUNC')
+end;    
 
-W0 = W;
-N0 = N;
-S0 = S;
+ busincP = reshape(permute(busincP,[1 3 4 2]),na*nr*neps,nz); % (na*nr*neps x nz)
+ busincP = repmat(busincP,1,nkap);
 
+V1up = zeros(na,nz*nkap);
+V2up = zeros(na,nz*nkap);
+V3up = zeros(na*nr*neps,nz*nkap);
+%%%
+distv = 10;
+tolv  = 1e-4;
+iterv = 1;
+maxiterv = 2.5e3;
+
+%% Endogenous Grid Value Function Iteration
+
+while distv>tolv && iterv<maxiterv
+
+F1    = griddedInterpolant(APgrid,Zgrid,KAPgrid,EV1);
+F2    = griddedInterpolant(APgrid,Zgrid,KAPgrid,EV2);
+
+EV1p = (F1(APgrid+dta,Zgrid,KAPgrid) - F1(APgrid-dta,Zgrid,KAPgrid))/(2*dta);
+EV2p = (F2(APgrid+dta,Zgrid,KAPgrid) - F2(APgrid-dta,Zgrid,KAPgrid))/(2*dta);
+
+c1 = (betta*EV1p).^(-1/sigma);
+c2 = (betta*EV2p).^(-1/sigma);
+
+m1 = reshape(c1 + APgrid,na,nz*nkap);
+m2 = reshape(c2 + APgrid,na,nz*nkap);
+
+
+V1new = reshape(ucalc(c1,sigma) - KAPgrid  + betta * EV1,na,nz*nkap);
+V2new = reshape(ucalc(c2,sigma) + betta * EV2,na,nz*nkap);
+
+nzkap = nz*nkap;
+
+for ii = 1:nzkap
+F3 = griddedInterpolant(m1(:,ii),V1new(:,ii));
+F4 = griddedInterpolant(m2(:,ii),V2new(:,ii));
+
+V1up(:,ii) = F3(winc);
+V2up(:,ii) = F4(uinc);
+V3up(:,ii) = F4(busincP(:,ii));
 end
 
-%%%%%%%%%%NEED TO CONTINUE HERE IF FAIL WITH THE OTHER OPTION%%%%%%%%%%%%%%
+EVold = [EV1 EV2];
 
-maxiter_v = 200;
-iter_v  = 1;
-tol_v   = 1e-6;
-dist_v  = 500;
-tic
-while iter_v<maxiter_v && dist_v>tol_v
+V3up = permute(reshape(V3up,na,nr,neps,nz,nkap),[2 4 3 1 5]);
+EV3up = sum(V3up.* PR,1);
+EV3up = sum(EV3up.*PP,3);
+EV3up = permute(EV3up,[4 2 5 1 3]);
 
-Vw = max(W0,max(S0,N0));
-Vu = max(S0,N0);
-
-% Can't multiply 3d matrices that's why I first reshape Vw(nz,na,nkap) to
-% Vw(nz,na*nkap) then calculate the expected values wrt z, then reshape
-% back to EVw(1,na,nkap) and then repmat to EVw(nz,na,nkap) 
+V1up = reshape(V1up,na,nz,nkap);
+V2up = reshape(V2up,na,nz,nkap);
 
 
-EVw = (1-psi) * Vw + psi * repmat(reshape(ones(1,nz)*reshape(Vw,nz,na...
-    *nkap)/nz,1,na,nkap),nz,1,1);
-EVu = (1-psi) * Vu + psi * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
-    *nkap)/nz,1,na,nkap),nz,1,1);
+VW = max(V1up,max(V2up,EV3up));
+VU = max(V2up,EV3up);
+
+EVW = (1-PSI)*VW + repmat(PSI*sum(VW.*PZ,2),1,nz,1);
+EVU = (1-PSI)*VU + repmat(PSI*sum(VU.*PZ,2),1,nz,1);
+
+EV1 = (1-lambda)*EVW + lambda*EVU;
+EV2 = (1-mu)*EVW + mu*EVU;
+
+distvOLD= distv;
+
+distv = max(max(max(abs((EVold-[EV1 EV2])./[EV1 EV2]))));
 
 
-[W IW] = max(Uwk + repmat(reshape(betta * ((1 - lambda) * EVw + lambda *...
-    EVu),nz,1,na,nkap),1,na,1,1),[],3);
-W = reshape(W,nz,na,nkap);
+iterv = iterv + 1;
+if distv<tolv | iterv>maxiterv
+    W = V1up;
+    N = V2up;
+    S = EV3up;
+end
 
-[N IN] = max(Uuk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
-    EVu),nz,1,na,nkap),1,na,1,1),[],3);
-N = reshape(N,nz,na,nkap);
+if distv>distvOLD
+    W = V1up;
+    N = V2up;
+    S = EV3up;
+    break;
+end
 
-[S IS] = max(UsBk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
-    EVu),nz,1,na,nkap),1,na,1,1),[],3);
-S = reshape(S,nz,na,nkap);
-
-
-
-
-%{   
- for ii = 1:nkap
- [S(:,:,ii) IS(:,:,ii)] = max(Usk(:,:,:,ii) + repmat(reshape(betta * ((1 - mu) * EVw(:,:,ii) + mu * ...
-     EVu(:,:,ii)),nz,1,na),1,na,1),[],3);
-
-[W(:,:,ii) IW(:,:,ii)] = max(Uwk(:,:,:,ii) + repmat(reshape(betta * ((1 - lambda) * EVw(:,:,ii) + lambda * ...
-     EVu(:,:,ii)),nz,1,na),1,na,1),[],3);
-
-[N(:,:,ii) IN(:,:,ii)] = max(Uuk(:,:,:,ii) + repmat(reshape(betta * ((1 - mu) * EVw(:,:,ii) + mu * ...
-     EVu(:,:,ii)),nz,1,na),1,na,1),[],3);
- end
-
- 
-W = reshape(W,nz,na,nkap);
-N = reshape(N,nz,na,nkap);
-S = reshape(S,nz,na,nkap);
-%}
-
-distVW = max(max(max(abs(W0 - W))));
-distVN = max(max(max(abs(N0 - N))));
-distVS = max(max(max(abs(S0 - S))));
-
-dist_v = max(distVW,max(distVN,distVS));
-
-W0 = W;
-N0 = N;
-S0 = S;
-
-iter_v = iter_v + 1;
-
-end;
+V1up = nan(na,nz*nkap);
+V2up = nan(na,nz*nkap);
+V3up = nan(na*nr*neps,nz*nkap);
+end
 toc
-
-clear Vb0 Vs0 Vw0 Vtemp EVtemp Vbtemp EVbtemp Temp1 Temp2 EV EVb
-
+%--------------------------------------------------------------------------
 if Vflag == 2
-    save('ValFun','S','N','W','Vw','Vu');
+    save('VFUNC','EV1','EV2');
 end;
 
 Vflag = 1;
-Nold  = N;
-Sold  = S;
-Wold  = W;
-Vuold = Vu;
-Vwold = Vw;
+EV1old = EV1;
+EV2old = EV2;
 
-work  = W >= max(S,N);
-semp  = S > max(W,N);
-unemp = N > max(W,S);
+%% The Occupations and the Thresholds
+
+W = reshape(permute(W,[1 3 2]),nkap*na,nz);
+S = reshape(permute(S,[1 3 2]),nkap*na,nz);
+N = reshape(permute(N,[1 3 2]),nkap*na,nz);
+
+WS = W - S;
+
+[temp IWSr]= min((WS>0),[],2);
+clear temp
+IWSl = IWSr-1;
+
+
+
+
+
+
+
+
+
+
+
 
 
