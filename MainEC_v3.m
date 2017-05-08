@@ -288,8 +288,47 @@ Wold  = W;
 Vuold = Vu;
 Vwold = Vw;
 
-work  = W >= max(S,N);
-semp  = S > max(W,N);
-unemp = N > max(W,S);
+W = reshape(permute(W,[2 3 1]),nkap*na,nz);
+S = reshape(permute(S,[2 3 1]),nkap*na,nz);
+N = reshape(permute(N,[2 3 1]),nkap*na,nz);
+
+WS = W - S;
+
+[temp IWS(:,2)]= min((WS>0),[],2);
+clear temp
+IWS(:,1) = IWS(:,2)-1;
+
+% threshold managerial talent that makes individuals of type (a,kap) be
+% indifferent between working and self-employment
+
+zwthresh = zeros(na*nkap,1);
+zwthresh(IWS(:,1)==0) = zgrid(1);
+zwthresh(IWS(:,2)==0) = nan;
+
+wghtw = abs(WS(IWS(IWS(:,1)>0,2)))./(abs(WS(IWS(IWS(:,1)>0,1))) +...
+    abs(WS(IWS(IWS(:,1)>0,2))));
+
+zwthresh(IWS(:,1)>0) = zgrid(IWS(IWS(:,1)>0,1)) + wghtw.*...
+    (zgrid(IWS(IWS(:,1)>0,2)) - zgrid(IWS(IWS(:,1)>0,1)));
+
+znthresh = zeros(nkap*na,1);
+
+NS = N-S;
+
+[temp INS(:,2)] = min(NS>0,[],2);
+clear temp
+INS(:,1) = INS(:,2) - 1;
+
+znthresh = zeros(na*nkap,1);
+znthresh(INS(:,1)==0) = zgrid(1);
+znthresh(INS(:,2)==0) = nan;
+
+wghtn = abs(NS(INS(INS(:,1)>0,2)))./(abs(NS(INS(INS(:,1)>0,1))) + abs(NS...
+    (INS(INS(:,1)>0,2))));
+
+znthresh(INS(:,1)>0) = zgrid(INS(INS(:,1)>0,1)) + wghtn.* ...
+    (zgrid(INS(INS(:,1)>0,2)) - zgrid(INS(INS(:,1)>0,1)));
+
+
 
 
