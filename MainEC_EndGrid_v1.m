@@ -48,8 +48,8 @@ xi       = 0.2; % Exemption level
 % Grid Parameters
 apmin    = 0.1;
 apmax    = 100;
-na      = 500;
-nz      = 70;
+na      = 120;
+nz      = 15;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
@@ -70,7 +70,7 @@ zgrid    = X(:,2);
 clear X
 
 X        = kapdist(ettakap,sigkap,nkap,KAPdist);
-Pkap     = X(1,1); 
+Pkap     = X(:,1); 
 kapgrid  = X(:,2);
 clear X
 
@@ -122,9 +122,27 @@ PZ = repmat(Pz',na,1,nkap);
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
-bigz = zstatdist(zgrid, nz,PSI,NN,TT); 
+bigz   = zstatdist(zgrid, nz,PSI,NN,TT); 
+bigkap = randsample([1:nkap]',NN,1,Pkap);
+
+bige   = rand(NN,TT);
+bige(bige(:,1)>0.5,1) = 1;
+bige(bige(:,1)<=0.5,1) = 0;
+bige = bige+1;
 
 
+for ii = 2:TT
+    TEMP1 = bige(:,ii-1);
+    TEMP2 = bige(:,ii);
+    TEMP2(TEMP1==1 & TEMP2<(1-lambda)) = 1;
+    TEMP2(TEMP1==0 & TEMP2<(1-mu))     = 1;
+    TEMP2(TEMP2<1) = 0;
+    bige(:,ii) = TEMP2;
+end
+
+biga = [randsample(apgrid,NN,1)',zeros(NN,TT-1)];
+
+occ  = zeros(NN,TT);
 
 %% The Income matrices
 %--------------------------------------------------------------------------
@@ -224,7 +242,6 @@ distvOLD= distv;
 
 distv = max(max(max(abs((EVold-[EV1 EV2])./[EV1 EV2]))));
 
-
 iterv = iterv + 1;
 if distv<tolv | iterv>maxiterv
     W = V1up;
@@ -254,13 +271,14 @@ EV1old = EV1;
 EV2old = EV2;
 
 %% The Occupations and the Thresholds
-
+%{
 % Make them na x nkap, nz
 
 W = reshape(permute(W,[1 3 2]),nkap*na,nz);
 S = reshape(permute(S,[1 3 2]),nkap*na,nz);
 N = reshape(permute(N,[1 3 2]),nkap*na,nz);
 
+%{
 WS = W - S;
 
 [temp IWS(:,2)]= min((WS>0),[],2);
@@ -321,6 +339,28 @@ clear wghtw wghtn
 % IWSkap(:,1) = IWSkap(:,2)-1;
 
 WN = W - N;
+
+[temp IWN(:,2)] = min(WN>0,[],2);
+IWN(:,1) = IWN(:,2) - 1;
+IWNt = na*nkap*(IWN-1)+repmat([1:na*nkap]',1,2);
+
+zwnthresh = zeros(na*nkap,1);
+zwnthresh(IWN(:,1)==0) = zgrid(1);
+zwnthresh(IWN(:,2)==0) = nan;
+zwnthresh(temp==1)     = zgrid(end);
+
+
+wghtwn = abs(WN(IWNt(IWN(:,1)>0,2)))./(abs(WN(IWNt(IWN(:,1)>0,1))) +...
+    abs(WN(IWNt(IWN(:,1)>0,2))));
+
+zwnthresh(IWN(:,1)>0) = zgrid(IWN(IWN(:,1)>0,2)) - wghtwn.* ...
+    (zgrid(IWN(IWN(:,1)>0,2)) - zgrid(IWN(IWN(:,1)>0,1)));
+
+%}
+
+
+%{
+WN = W - N;
 WN = reshape(permute(reshape(WN,na,nkap,nz),[1 3 2]),na*nz,nkap);
 kapthresh = nan(na*nz,1);
 
@@ -335,3 +375,49 @@ tempind = (~isnan(IWN(:,1)) & IWN(:,1)>0);
 
 kapthresh(tempind) = kapgrid(IWN(tempind,2)) -wght.*...
     (kapgrid(IWN(tempind,2)) - kapgrid(IWN(tempind,1)));
+%}
+
+
+zwbar = WSzbar(W,S,zgrid,na,nkap);
+znbar = NSzbar(N,S,zgrid,na,nkap);
+zwnbar = WNzbar(W,N,zgrid,na,nkap);
+
+zorder = zeros(na,nkap);
+zorder(zwnbar>znbar)  = 2;
+zorder(zwnbar<=znbar) = 1; 
+%}
+W = reshape(permute(W,[2 3 1]),nz*nkap,na);
+S = reshape(permute(S,[2 3 1]),nz*nkap,na);
+N = reshape(permute(N,[2 3 1]),nz*nkap,na);
+
+occindex = occs(W,N,S,na,nz,nkap);
+
+TEMP1 = occindex(:,1:end-1,1)==occindex(:,2:end,1);
+
+TEMP2    = sum(TEMP1==0,2);
+INDTEMP1 = find(TEMP2<=1);
+INDTEMP2 = find(TEMP2==2);
+INDTEMP3 = find(TEMP2==3);
+INDTEMP4 = find(TEMP2==4);
+INDTEMP5 = find(TEMP2>4);
+
+check = nan(nz*nkap,4);
+
+
+
+
+
+%% The Stationary Distribution
+
+% The order of threshold zs
+
+% bige=2 then work option, if bige=1 no work option, similar to the
+% occindex
+
+
+
+
+% tt = 1:TT
+
+
+

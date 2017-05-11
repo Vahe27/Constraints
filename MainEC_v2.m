@@ -11,7 +11,7 @@ global r_bar deltta alfa nu gama Gama xi
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
 betta    = 0.95;
-sigma    = 1; % Risk aversion coefficient, log utility if 1
+sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Unemployment tax and benefit
 tau        = 0.05;
@@ -31,14 +31,14 @@ ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
 sigz     = 1;
 
-psi      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
+PSI      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
 
 ettakap  = 0.05; % Two parameters that will be useful for the disutility from work
 sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.8 0.1 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 5 10];
+sigeps   = [0 0.1 5];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -48,9 +48,9 @@ xi       = 0.2; % Exemption level
 % Grid Parameters
 amin    = 0.1;
 amax    = 100;
-na      = 300;
-nz      = 10;
-nkap    = 5;
+na      = 120;
+nz      = 30;
+nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
@@ -70,7 +70,7 @@ zgrid    = X(:,2);
 clear X
 
 X        = kapdist(ettakap,sigkap,nkap,KAPdist);
-Pkap     = X(1,1); 
+Pkap     = X(:,1); 
 kapgrid  = X(:,2);
 clear X
 
@@ -80,8 +80,12 @@ T  = 500;
 
 % Initial Values of the variables
 w0       = 0.9;
-r0       = [0.04 0.05 0.06];
-b0       = 0.3;
+r0       = [0.04 0.05 0.09];
+b0       = 0.2;
+
+% Probabilities of facing a given borrowing rate
+Pr = rand(nr,nz);
+Pr = Pr./repmat(sum(Pr,1),nr,1);
 
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
@@ -95,7 +99,7 @@ Agrid = adist(amin,amax,nA,Amethod);
 
 % Auxilliary Parameters
 
-Pr   = [0.2;0.6;0.2];
+%Pr   = [0.2;0.6;0.2];
 Gama = (gama^gama)/((1+gama)^(1+gama));
 
 estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
@@ -108,7 +112,9 @@ bneps = 3;
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
-bigz = zstatdist(zgrid, nz,psi,NN,TT); 
+bigz = zstatdist(zgrid, nz,PSI,NN,TT); 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+kapgrid(1)=0;
 
 %% The Consumption matrices
 %--------------------------------------------------------------------------
@@ -182,9 +188,10 @@ z_arrayint   = repmat(zgrid,1,length(ATILDE),nkap);
 kap_arrayint = repmat(reshape(kapgrid,1,1,nkap),nz,length(ATILDE),1);
 TS           = zeros(nz,length(ATILDE),nkap);
 
-Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+%Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+Pr_int       = repmat(reshape(Pr',nz,1,nr),1,na,1,1,nkap);
 Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
-toc
+
 %--------------------------------------------------------------------------
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
@@ -226,7 +233,7 @@ end
 
 maxiter_v = 1000;
 iter_v  = 1;
-tol_v   = 1e-5;
+tol_v   = 1e-4;
 dist_v  = 500;
 
 while iter_v<maxiter_v && dist_v>tol_v
@@ -239,9 +246,9 @@ Vu = max(ES0,N0);
 % back to EVw(1,na,nkap) and then repmat to EVw(nz,na,nkap) 
 
 
-EVw = (1-psi) * Vw + psi * repmat(reshape(ones(1,nz)*reshape(Vw,nz,na...
+EVw = (1-PSI) * Vw + PSI * repmat(reshape(ones(1,nz)*reshape(Vw,nz,na...
     *nkap)/nz,1,na,nkap),nz,1,1);
-EVu = (1-psi) * Vu + psi * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
+EVu = (1-PSI) * Vu + PSI * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
     *nkap)/nz,1,na,nkap),nz,1,1);
 
 
@@ -283,9 +290,9 @@ N = reshape(N,nz,na,nkap);
 S = reshape(S,nz,na,nkap);
 %}
 
-distVW = max(max(max(abs(W0 - W))));
-distVN = max(max(max(abs(N0 - N))));
-distVS = max(max(max(abs(ES0 - ES))));
+distVW = max(max(max(abs(W0 - W)./((abs(W0)+abs(W))/2))));
+distVN = max(max(max(abs(N0 - N)./((abs(N0)+abs(N))/2))));
+distVS = max(max(max(abs(ES0 - ES)./((abs(ES0)+abs(ES))/2))));
 
 dist_v = max(distVW,max(distVN,distVS));
 
@@ -313,190 +320,11 @@ Vuold = Vu;
 Vwold = Vw;
 ESold = ES;
 
-work  = W >= max(ES,N);
-semp  = ES > max(W,N);
-unemp = N > max(W,ES);
-
-
-%%---------------------------Stationary Distribution-----------------------
-
-
-
-
-
-
-
-% The occupational choice is static, so in any period those with given
-% (z,a) will choose either to work, or to start a self-employment or become
-% an employer.
-
-semp = swch_ws - swch_wb - swch_sb;
-semp(semp<1) = 0;
-bemp = swch_wb + swch_sb;
-bemp(bemp>1) = 1;
-work = ones(n_z,n_a) - semp - bemp;
-% Those who switch back from an employer to self employed or employee
-bback = abs(swch_bb-1);
-
-
-% Simulate N people over T periods and look at the last period distribution
-
-
-
-bigz   = zeros(N,T);
-bigz(:,2:end) = rand(N,T-1);
-bigz(bigz<1-psi) = 0;
-bigz(bigz>=1-psi) = 1;
-bigz(:,1) = randsample([1:n_z]',N,1);
-
-biga      = zeros(N,T);
-biga(:,1) = agrid(1); %randsample(agrid,N,1);
-
-bige      = zeros(N,T);
-
-
-for t = 2:T
-    Temp1 = bigz(:,t);
-    Temp2 = bigz(:,t-1);
-    Temp3 = randsample([1:n_z]',sum(Temp1),1);
-    Temp1(bigz(:,t)==0) = Temp2(bigz(:,t)==0);
-    Temp1(bigz(:,t)==1) = Temp3;
-    bigz(:,t) = Temp1;
-end;
-
-clear Temp1 Temp2 Temp3
-
-%---------------------------For the Stat Distribution----------------------
-% Some auxilliary matrices needed for later calculations
-iz = [1:n_z]';
-ie = 5*[1:n_e];
-
-
-gsemp = gsemp(:,:,1) .* (1 - swch_sb) + gsemp(:,:,2) .* swch_sb;
-gbemp = gbemp(:,:,1) .* (1 - swch_bb) + gbemp(:,:,2) .* swch_bb;
-gwork = gwork(:,:,1) .* (1 - swch_wb) + gwork(:,:,2) .* swch_wb;
-
-indv  = cat(3,gwork,gsemp,gbemp);
-iV    = agrid(indv);
-%--------------------------------------------------------------------------
-
-%% The Loop
-
-for t = 1:T
-
-[CC pos(:,1)] = min(abs(repmat(biga(:,t),1,n_a)-repmat(agrid,N,1)),[],2);
-
-pos(agrid(pos)' - biga(:,t)<0) = pos(agrid(pos)' - biga(:,t)<0) + 1; 
-pos(pos==1)   = 2;
-pos(:,2)      = pos;
-pos(:,1)      = pos(:,2)-1;
-
-% I want to interpolate the occupations in the following way: If an
-% individual's asset lies between (0,0) or (1,1) meaning no occupational or
-% definite change, move on, if (0,1) or (1,0) check to which value it is
-% closer, if closer to the lower value (e.g. pos_wght<0.5) then choose 0
-% (or 1 in the latter case) and if closer to the higher value, choose 1 (or
-% 0 in the lower case)
-
-pos_wght  = (biga(:,t) - agrid(pos(:,1))')./(agrid(pos(:,2))' - agrid(pos(:,1))');
-
-temp_work = work(n_z*(pos(:,1)-1)+bigz(:,t)) + work(n_z*(pos(:,2)-1)+bigz(:,t));
-temp_semp = semp(n_z*(pos(:,1)-1)+bigz(:,t)) + semp(n_z*(pos(:,2)-1)+bigz(:,t));
-temp_bemp = bemp(n_z*(pos(:,1)-1)+bigz(:,t)) + bemp(n_z*(pos(:,2)-1)+bigz(:,t));
-
-Temp1 = zeros(N,1);
-
-Temp1(temp_work==2 | (work(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (work(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 5;
-Temp1(temp_semp==2 | (semp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (semp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 10;
-Temp1(temp_bemp==2 | (bemp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (bemp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 15;
-
-bige(:,t) = Temp1;
-clear Temp1 
-
-if t>1
-    
-    % Here I check whether the individual is an employer or not, if yes, he
-    % doesn't have to pay kappa, so his occupational choice changes
-    % relative to the previous calculation, and depends on the previous
-    % state of e
-    
-Temp1     = bige(:,t);
-temp_keep =  swch_bb(n_z*(pos(:,1)-1)+bigz(:,t)) + swch_bb(n_z*(pos(:,1)-1)+bigz(:,t));
-
-Temp1(bige(:,t-1)==15 & (temp_keep==2 | (swch_bb(n_z*(pos(:,2)-1)...
-    + bigz(:,t))==1 & pos_wght>=0.5) | (swch_bb(n_z*(pos(:,1)-1)+bigz(:,t))...
-    ==1 & pos_wght<0.5))) = 15;
-
-bige(bige(:,t-1)==15,t) = Temp1(bige(:,t-1)==15);
-
-end
-
-
-
-
-biga(:,t+1) = interpn(iz,agrid,ie,iV,bigz(:,t),biga(:,t),bige(:,t));
-clear pos
-end
-toc
-
-
-
-%---------------------------Labor Demand-----------------------------------
-
-employer = (bige(:,end)==15);
-zemp     = employer.*z(bigz(:,end));
-
-lemp = zemp.^(1/(1-nu)) * ((1+r_bar)/alfa)^(alfa/(nu-1)) * (w/betta)^((1-alfa)/(nu-1));
-LD = sum(lemp)/N;
-
-
-
-disp('share employer')
-sum(bige(:,end)==15)/N
-
-
-disp('share self employed')
-sum(bige(:,end)==10)/N
-
-disp('Labor Demand')
-LD
-
-histogram(bige(:,end))
-
-% bige = bige(:,end);
-% biga = biga(:,end);
-
-toc
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+W = reshape(permute(W,[1 3 2]),nkap*nz,na);
+N = reshape(permute(N,[1 3 2]),nkap*nz,na);
+S = reshape(permute(S,[1 3 2]),nkap*nz,na);
+ES = reshape(permute(ES,[1 3 2]),nkap*nz,na);
+S=ES;
 
 
 

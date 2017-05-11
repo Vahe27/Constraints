@@ -49,7 +49,7 @@ xi       = 0.2; % Exemption level
 amin    = 0.1;
 amax    = 100;
 na      = 200;
-nz      = 10;
+nz      = 30;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
@@ -292,42 +292,185 @@ W = reshape(permute(W,[2 3 1]),nkap*na,nz);
 S = reshape(permute(S,[2 3 1]),nkap*na,nz);
 N = reshape(permute(N,[2 3 1]),nkap*na,nz);
 
-WS = W - S;
+%%---------------------------Stationary Distribution-----------------------
 
-[temp IWS(:,2)]= min((WS>0),[],2);
-clear temp
-IWS(:,1) = IWS(:,2)-1;
 
-% threshold managerial talent that makes individuals of type (a,kap) be
-% indifferent between working and self-employment
 
-zwthresh = zeros(na*nkap,1);
-zwthresh(IWS(:,1)==0) = zgrid(1);
-zwthresh(IWS(:,2)==0) = nan;
 
-wghtw = abs(WS(IWS(IWS(:,1)>0,2)))./(abs(WS(IWS(IWS(:,1)>0,1))) +...
-    abs(WS(IWS(IWS(:,1)>0,2))));
 
-zwthresh(IWS(:,1)>0) = zgrid(IWS(IWS(:,1)>0,1)) + wghtw.*...
-    (zgrid(IWS(IWS(:,1)>0,2)) - zgrid(IWS(IWS(:,1)>0,1)));
 
-znthresh = zeros(nkap*na,1);
 
-NS = N-S;
+% The occupational choice is static, so in any period those with given
+% (z,a) will choose either to work, or to start a self-employment or become
+% an employer.
 
-[temp INS(:,2)] = min(NS>0,[],2);
-clear temp
-INS(:,1) = INS(:,2) - 1;
+semp = swch_ws - swch_wb - swch_sb;
+semp(semp<1) = 0;
+bemp = swch_wb + swch_sb;
+bemp(bemp>1) = 1;
+work = ones(n_z,n_a) - semp - bemp;
+% Those who switch back from an employer to self employed or employee
+bback = abs(swch_bb-1);
 
-znthresh = zeros(na*nkap,1);
-znthresh(INS(:,1)==0) = zgrid(1);
-znthresh(INS(:,2)==0) = nan;
 
-wghtn = abs(NS(INS(INS(:,1)>0,2)))./(abs(NS(INS(INS(:,1)>0,1))) + abs(NS...
-    (INS(INS(:,1)>0,2))));
+% Simulate N people over T periods and look at the last period distribution
 
-znthresh(INS(:,1)>0) = zgrid(INS(INS(:,1)>0,1)) + wghtn.* ...
-    (zgrid(INS(INS(:,1)>0,2)) - zgrid(INS(INS(:,1)>0,1)));
+
+
+bigz   = zeros(N,T);
+bigz(:,2:end) = rand(N,T-1);
+bigz(bigz<1-psi) = 0;
+bigz(bigz>=1-psi) = 1;
+bigz(:,1) = randsample([1:n_z]',N,1);
+
+biga      = zeros(N,T);
+biga(:,1) = agrid(1); %randsample(agrid,N,1);
+
+bige      = zeros(N,T);
+
+
+for t = 2:T
+    Temp1 = bigz(:,t);
+    Temp2 = bigz(:,t-1);
+    Temp3 = randsample([1:n_z]',sum(Temp1),1);
+    Temp1(bigz(:,t)==0) = Temp2(bigz(:,t)==0);
+    Temp1(bigz(:,t)==1) = Temp3;
+    bigz(:,t) = Temp1;
+end;
+
+clear Temp1 Temp2 Temp3
+
+%---------------------------For the Stat Distribution----------------------
+% Some auxilliary matrices needed for later calculations
+iz = [1:n_z]';
+ie = 5*[1:n_e];
+
+
+gsemp = gsemp(:,:,1) .* (1 - swch_sb) + gsemp(:,:,2) .* swch_sb;
+gbemp = gbemp(:,:,1) .* (1 - swch_bb) + gbemp(:,:,2) .* swch_bb;
+gwork = gwork(:,:,1) .* (1 - swch_wb) + gwork(:,:,2) .* swch_wb;
+
+indv  = cat(3,gwork,gsemp,gbemp);
+iV    = agrid(indv);
+%--------------------------------------------------------------------------
+
+%% The Loop
+
+for t = 1:T
+
+[CC pos(:,1)] = min(abs(repmat(biga(:,t),1,n_a)-repmat(agrid,N,1)),[],2);
+
+pos(agrid(pos)' - biga(:,t)<0) = pos(agrid(pos)' - biga(:,t)<0) + 1; 
+pos(pos==1)   = 2;
+pos(:,2)      = pos;
+pos(:,1)      = pos(:,2)-1;
+
+% I want to interpolate the occupations in the following way: If an
+% individual's asset lies between (0,0) or (1,1) meaning no occupational or
+% definite change, move on, if (0,1) or (1,0) check to which value it is
+% closer, if closer to the lower value (e.g. pos_wght<0.5) then choose 0
+% (or 1 in the latter case) and if closer to the higher value, choose 1 (or
+% 0 in the lower case)
+
+pos_wght  = (biga(:,t) - agrid(pos(:,1))')./(agrid(pos(:,2))' - agrid(pos(:,1))');
+
+temp_work = work(n_z*(pos(:,1)-1)+bigz(:,t)) + work(n_z*(pos(:,2)-1)+bigz(:,t));
+temp_semp = semp(n_z*(pos(:,1)-1)+bigz(:,t)) + semp(n_z*(pos(:,2)-1)+bigz(:,t));
+temp_bemp = bemp(n_z*(pos(:,1)-1)+bigz(:,t)) + bemp(n_z*(pos(:,2)-1)+bigz(:,t));
+
+Temp1 = zeros(N,1);
+
+Temp1(temp_work==2 | (work(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
+   | (work(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 5;
+Temp1(temp_semp==2 | (semp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
+   | (semp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 10;
+Temp1(temp_bemp==2 | (bemp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
+   | (bemp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 15;
+
+bige(:,t) = Temp1;
+clear Temp1 
+
+if t>1
+    
+    % Here I check whether the individual is an employer or not, if yes, he
+    % doesn't have to pay kappa, so his occupational choice changes
+    % relative to the previous calculation, and depends on the previous
+    % state of e
+    
+Temp1     = bige(:,t);
+temp_keep =  swch_bb(n_z*(pos(:,1)-1)+bigz(:,t)) + swch_bb(n_z*(pos(:,1)-1)+bigz(:,t));
+
+Temp1(bige(:,t-1)==15 & (temp_keep==2 | (swch_bb(n_z*(pos(:,2)-1)...
+    + bigz(:,t))==1 & pos_wght>=0.5) | (swch_bb(n_z*(pos(:,1)-1)+bigz(:,t))...
+    ==1 & pos_wght<0.5))) = 15;
+
+bige(bige(:,t-1)==15,t) = Temp1(bige(:,t-1)==15);
+
+end
+
+
+
+
+biga(:,t+1) = interpn(iz,agrid,ie,iV,bigz(:,t),biga(:,t),bige(:,t));
+clear pos
+end
+toc
+
+
+
+%---------------------------Labor Demand-----------------------------------
+
+employer = (bige(:,end)==15);
+zemp     = employer.*z(bigz(:,end));
+
+lemp = zemp.^(1/(1-nu)) * ((1+r_bar)/alfa)^(alfa/(nu-1)) * (w/betta)^((1-alfa)/(nu-1));
+LD = sum(lemp)/N;
+
+
+
+disp('share employer')
+sum(bige(:,end)==15)/N
+
+
+disp('share self employed')
+sum(bige(:,end)==10)/N
+
+disp('Labor Demand')
+LD
+
+histogram(bige(:,end))
+
+% bige = bige(:,end);
+% biga = biga(:,end);
+
+toc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
