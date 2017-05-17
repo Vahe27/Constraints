@@ -16,7 +16,7 @@ sigma    = 2; % Risk aversion coefficient, log utility if 1
 % Unemployment tax and benefit
 tau        = 0.05;
 
-% Job destruction and job finding parameters
+% Job destruction and job NOT finding parameters
 lambda = 0.2;
 mu     = 0.2;
 
@@ -31,7 +31,7 @@ ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
 sigz     = 1;
 
-PSI      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
+PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
 
 ettakap  = 0.05; % Two parameters that will be useful for the disutility from work
 sigkap   = 5;
@@ -47,9 +47,9 @@ xi       = 0.2; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
-amax    = 100;
+amax    = 200;
 na      = 120;
-nz      = 30;
+nz      = 50;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
@@ -74,14 +74,10 @@ Pkap     = X(:,1);
 kapgrid  = X(:,2);
 clear X
 
-% Stationary Distribution Parameters
-N  = 30000;
-T  = 500;
-
 % Initial Values of the variables
 w0       = 0.9;
 r0       = [0.04 0.05 0.09];
-b0       = 0.2;
+b0       = 0.1;
 
 % Probabilities of facing a given borrowing rate
 Pr = rand(nr,nz);
@@ -89,10 +85,10 @@ Pr = Pr./repmat(sum(Pr,1),nr,1);
 
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
-NN = 3e4;
-TT = 250;
+NN = 5e4;
+TT = 550;
 
-nA = 400;
+nA = 500;
 
 Agrid = adist(amin,amax,nA,Amethod);
 %--------------------------------------------------------------------------
@@ -102,17 +98,78 @@ Agrid = adist(amin,amax,nA,Amethod);
 %Pr   = [0.2;0.6;0.2];
 Gama = (gama^gama)/((1+gama)^(1+gama));
 
-estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
-
 % As a benchmark for approximation, I choose highest shock, eps=eps_max and
 % low borrowing rate r_min>r_bar
 
 bnr   = 1;
 bneps = 3;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nnn          = na*nr*neps;
+kap_array    = repmat(reshape(kapgrid,1,1,nkap),nz,na,1);
+a_array      = repmat(agrid,nz,1,nkap);
+z_array      = repmat(zgrid,1,na,nkap);
+z_arrayint   = repmat(zgrid,1,nnn,nkap);
+kap_arrayint = repmat(reshape(kapgrid,1,1,nkap),nz,nnn,1);
+TS           = zeros(nz,nnn,nkap);
+
+%Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+Pr_int       = repmat(reshape(Pr',nz,1,nr),1,na,1,1,nkap);
+Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
-bigz = zstatdist(zgrid, nz,PSI,NN,TT); 
+bigz   = zstatdist([1:nz]', nz,PSI,NN,TT); 
+bigkap = randsample([1:nkap]',NN,1,Pkap);
+
+bige   = rand(NN,TT);
+bige(bige(:,1)>0.5,1) = 1;
+bige(bige(:,1)<=0.5,1) = 0;
+
+bige(:,1) = bige(:,1)+1;
+
+biga = [randsample([1:nA/2],NN,1)',zeros(NN,TT-1)];
+
+occ  = zeros(NN,TT);
+%--------------------------------------------------------------------------
+%% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%{
+distL    = 100;
+tolL     = 1e-4;
+maxiterL = 20;
+iterL    = 1;
+stugL    = zeros(maxiterL,3);
+wmax     = 1.7;
+wmin     = 0.1;
+mflagL    = 1;
+wtol      = 100;
+wtolmax   = 1e-5;
+
+while distL>tolL && iterL<maxiterL && wtol > wtolmax
+    
+    if iterL>2
+     
+     if fa~=fc && fb~=fc
+        
+        s = a*fb*fc/((fa-fb)*(fa-fc)) + b*fa*fc/((fb-fa)*(fb-fc))...
+            +c*fa*fb/((fc-fa)*(fc-fb));
+    else
+        s = b - fb*(b-a)/(fb-fa);
+    end;
+    
+    if (s>max((3*a+b)/4,b) || s<min((3*a+b)/4,b)) || ...
+   (mflagL==1 && abs(s-b)>=abs(b-c)/2) || (mflagL==0 && abs(s-b)>=abs(c-d)/2)...
+   || (mflagL==1 && abs(b-c)<tol_aux) || (mflagL==0 && abs(c-d)<tol_aux)
+        
+        s = (a+b)/2;
+        mflagL=1;
+    else
+        mflagL=0;
+    end;
+    w0 = s;
+ end;
+%}
+%--------------------------------------------------------------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 kapgrid(1)=0;
 
@@ -123,8 +180,8 @@ kapgrid(1)=0;
 % income from depositing left-over assets, doesn't include taxes 
 
 X = profitcalc(zgrid,agrid,r0,w0);
-businc = X(:,:,:,1);
-indhire = X(:,:,:,2); % Index indicating whether the individual hires or not
+businc   = X(:,:,:,1);
+indhire  = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
 
 % The Shock and after-shock businc - busincP. I here allow for
@@ -179,20 +236,7 @@ clear consw consu conssB Uu Uw UsB
 %--------------------------------------------------------------------------
 
 % Auxilliary Parameters II
-
-ATILDE       = repmat(reshape(Atilde,nz,na*nr*neps),1,1,nkap);
-kap_array    = repmat(reshape(kapgrid,1,1,nkap),nz,na,1);
-a_array      = repmat(agrid,nz,1,nkap);
-z_array      = repmat(zgrid,1,na,nkap);
-z_arrayint   = repmat(zgrid,1,length(ATILDE),nkap);
-kap_arrayint = repmat(reshape(kapgrid,1,1,nkap),nz,length(ATILDE),1);
-TS           = zeros(nz,length(ATILDE),nkap);
-
-%Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
-Pr_int       = repmat(reshape(Pr',nz,1,nr),1,na,1,1,nkap);
-Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
-
-%--------------------------------------------------------------------------
+ATILDE       = repmat(reshape(Atilde,nz,nnn),1,1,nkap);
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
 
@@ -320,11 +364,76 @@ Vuold = Vu;
 Vwold = Vw;
 ESold = ES;
 
-W = reshape(permute(W,[1 3 2]),nkap*nz,na);
-N = reshape(permute(N,[1 3 2]),nkap*nz,na);
-S = reshape(permute(S,[1 3 2]),nkap*nz,na);
-ES = reshape(permute(ES,[1 3 2]),nkap*nz,na);
-S=ES;
+%--------------------------------------------------------------------------
+
+StatdistVFI;
+
+LabMarket;
+%{
+funcdistL(iterL,:) = [(LS-LD)/LS w0];
+
+if iterL>2
+    fs     = funcdistL(iterL,1);
+    distL = abs(fs);
+    d = c;
+    c = b;
+    fc = fb;
+    if fa*fs<0
+        fb = fs;
+        b = s;
+    else
+        fa = fs;
+        a = s;
+    end;
+    
+    if abs(fa)<abs(fb)
+        cc  = a;
+        fcc = fa;
+        a = b;
+        fa = fb;
+        b = cc;
+        fb = fcc;
+    clear cc fcc
+    end;
+end;
+
+end
 
 
+
+if iterL == 2 && funcdistL(iterL,1)*funcdistL(iterL-1,1)>0
+   
+    wmax  = wmax*1.2;
+    iterL = iterL - 1;
+elseif iterL ==2
+    fa = funcdistL(iterL-1,1);
+    fb = funcdistL(iterL,1);
+     a = funcdistL(iterL-1,2);
+     b = funcdistL(iterL,2);
+     if abs(fa)<abs(fb)
+         temp  =   a;
+         ftemp = fa;
+         a     = b;
+         fa    = fb;
+         b     = temp;
+         fb    = ftemp;
+     end;
+     fc = fa;
+     c  = a;
+end;
+
+stugL(iterL,:) = [iterL distL w0];
+
+iterL = iterL + 1
+Lerflag = 0;
+
+if iterL == 2;
+     w0 = wmax;
+end;
+
+if iterL>2
+wtol = abs(funcdistL(iterL-1,2)-funcdistL(iterL-2,2))/funcdistL(iterL-2,2);
+end;
+
+%}
 

@@ -82,7 +82,6 @@ end
 clear Temp Temp2 TKown TKownmina
 %--------------------------------------------------------------------------
 % Employers
-
 % Invested capital by employers under borrowing rate r_bar (1) and r (2).
 % Again, three types, k(rbar)<a save (a-k) *(1+rbar), k(r)>a borrow (k-a) *
 % (1+r) and k(rbar)>=a but k(r)<a invest a and save 0
@@ -152,6 +151,7 @@ L = (gama/w)^(1/(1-gama)) * repmat(z.^(1/(1-gama)),1,na) .* (TKemp.^...
 profit_emp(:,:,ii) = repmat(z,1,na) .* TKemp.^(alfa).* L.^(gama) - w*L...
     + TKempmina + (1 - deltta) * TKemp;
 
+
 end
 %--------------------------------------------------------------------------
 
@@ -160,7 +160,6 @@ end
 
 y(:,:,:,1) = max(profit_emp,profit_own);
 y(:,:,:,2) = (profit_emp>profit_own);
-
 
 
 

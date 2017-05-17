@@ -125,6 +125,8 @@ PZ = repmat(Pz',na,1,nkap);
 bigz   = zstatdist(zgrid, nz,PSI,NN,TT); 
 bigkap = randsample([1:nkap]',NN,1,Pkap);
 
+% bige=1 unemployed, bige=2 employed
+
 bige   = rand(NN,TT);
 bige(bige(:,1)>0.5,1) = 1;
 bige(bige(:,1)<=0.5,1) = 0;
