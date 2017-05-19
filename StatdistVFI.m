@@ -83,6 +83,8 @@ IWINT = reshape(IWINT,nA,nz,nkap);
 ININT = reshape(ININT,nA,nz,nkap);
 ISINT = reshape(ISINT,nA,nz,nkap);
 
+bige = bigeprobs;
+
 for ii =1:TT-1;
 
 % bige=1 unemployed, bige=2 - employed
@@ -116,7 +118,7 @@ bige(occ(:,ii)==2,ii+1) = TEMP;
 clear TEMP
 
 end;
-toc
+
 
 Biga = biga(:,end-1);
 Bige = bige(:,end-1);

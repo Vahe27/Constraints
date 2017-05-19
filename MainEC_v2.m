@@ -17,8 +17,8 @@ sigma    = 2; % Risk aversion coefficient, log utility if 1
 tau        = 0.05;
 
 % Job destruction and job NOT finding parameters
-lambda = 0.2;
-mu     = 0.2;
+lambda = 0.05;
+mu     = 0.1;
 
 % Production Parameters
 deltta   = 0.06;
@@ -75,9 +75,9 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.9;
+w0       = 0.56;
 r0       = [0.04 0.05 0.09];
-b0       = 0.1;
+b0       = 0.000;
 
 % Probabilities of facing a given borrowing rate
 Pr = rand(nr,nz);
@@ -85,8 +85,8 @@ Pr = Pr./repmat(sum(Pr,1),nr,1);
 
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
-NN = 5e4;
-TT = 550;
+NN = 7e4;
+TT = 500;
 
 nA = 500;
 
@@ -121,11 +121,11 @@ Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 bigz   = zstatdist([1:nz]', nz,PSI,NN,TT); 
 bigkap = randsample([1:nkap]',NN,1,Pkap);
 
-bige   = rand(NN,TT);
-bige(bige(:,1)>0.5,1) = 1;
-bige(bige(:,1)<=0.5,1) = 0;
+bigeprobs   = rand(NN,TT);
+bigeprobs(bigeprobs(:,1)>0.5,1) = 1;
+bigeprobs(bigeprobs(:,1)<=0.5,1) = 0;
 
-bige(:,1) = bige(:,1)+1;
+bigeprobs(:,1) = bigeprobs(:,1)+1;
 
 biga = [randsample([1:nA/2],NN,1)',zeros(NN,TT-1)];
 
@@ -133,17 +133,22 @@ occ  = zeros(NN,TT);
 %--------------------------------------------------------------------------
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%{
+% Labor Market Loop Matrices ----------------------------------------------
 distL    = 100;
-tolL     = 1e-4;
+tolL     = 5e-4;
 maxiterL = 20;
 iterL    = 1;
 stugL    = zeros(maxiterL,3);
-wmax     = 1.7;
-wmin     = 0.1;
+wmax     = 1.4;
+wmin     = 0.5;
 mflagL    = 1;
 wtol      = 100;
-wtolmax   = 1e-5;
+wtolmax   = 1e-7;
+tolaux   = 1e-5;
+% Capflag = 0 means that profits will be calcualted in profitcalc and not
+% the capital demand
+Capflag = 0;
+%--------------------------------------------------------------------------
 
 while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
@@ -159,7 +164,7 @@ while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
     if (s>max((3*a+b)/4,b) || s<min((3*a+b)/4,b)) || ...
    (mflagL==1 && abs(s-b)>=abs(b-c)/2) || (mflagL==0 && abs(s-b)>=abs(c-d)/2)...
-   || (mflagL==1 && abs(b-c)<tol_aux) || (mflagL==0 && abs(c-d)<tol_aux)
+   || (mflagL==1 && abs(b-c)<tolaux) || (mflagL==0 && abs(c-d)<tolaux)
         
         s = (a+b)/2;
         mflagL=1;
@@ -168,7 +173,6 @@ while distL>tolL && iterL<maxiterL && wtol > wtolmax
     end;
     w0 = s;
  end;
-%}
 %--------------------------------------------------------------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 kapgrid(1)=0;
@@ -178,8 +182,7 @@ kapgrid(1)=0;
 
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
-
-X = profitcalc(zgrid,agrid,r0,w0);
+X = profitcalc(zgrid,agrid,r0,w0,Capflag);
 businc   = X(:,:,:,1);
 indhire  = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
@@ -348,7 +351,7 @@ iter_v = iter_v + 1;
 
 
 end;
-toc
+
 
 clear Vb0 Vs0 Vw0 Vtemp EVtemp Vbtemp EVbtemp Temp1 Temp2 EV EVb
 
@@ -369,8 +372,8 @@ ESold = ES;
 StatdistVFI;
 
 LabMarket;
-%{
-funcdistL(iterL,:) = [(LS-LD)/LS w0];
+
+funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
 
 if iterL>2
     fs     = funcdistL(iterL,1);
@@ -395,16 +398,7 @@ if iterL>2
         fb = fcc;
     clear cc fcc
     end;
-end;
 
-end
-
-
-
-if iterL == 2 && funcdistL(iterL,1)*funcdistL(iterL-1,1)>0
-   
-    wmax  = wmax*1.2;
-    iterL = iterL - 1;
 elseif iterL ==2
     fa = funcdistL(iterL-1,1);
     fb = funcdistL(iterL,1);
@@ -424,7 +418,7 @@ end;
 
 stugL(iterL,:) = [iterL distL w0];
 
-iterL = iterL + 1
+iterL = iterL + 1;
 Lerflag = 0;
 
 if iterL == 2;
@@ -435,5 +429,14 @@ if iterL>2
 wtol = abs(funcdistL(iterL-1,2)-funcdistL(iterL-2,2))/funcdistL(iterL-2,2);
 end;
 
-%}
+disp('Iter, Labor Distance, wage rate, time ')
+xx=toc;
+disp([iterL [] distL [] w0 [] xx])
+end;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+CapMarket;
+
+nempshare = sum(OCC==1)/NN;
+
 

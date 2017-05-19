@@ -1,4 +1,10 @@
-function y = profitcalc(z,a,r,w);
+function y = profitcalc(z,a,r,w,Capflag);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% A NOTE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% If making a change in this function don't forget to adjust also the
+% function which calcualtes labor, because they are almost the same for the
+% part of employers laborcalcMCMC
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Created 12.04.2017
 % Last Update 20.04.2017 Make r multidimensional (signals)
@@ -20,6 +26,12 @@ nz = length(z);
 nr = length(r);
 profit_own = zeros(nz,na,nr);
 profit_emp = zeros(nz,na,nr);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FOR CAPITAL MARKET %%%%%%%%%%%%%%%%%%%%%%%%%%
+if Capflag ~= 0
+    Borrowedown = nan(nz,na,nr);
+    Borrowedemp = nan(nz,na,nr);
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Eq 2 in notes
 kownacc(:,:,1) = (alfa/(r_bar + deltta))^(1/(1-alfa)) * Gama^(1/(1-alfa))...
@@ -77,6 +89,10 @@ TKownmina = Kownmina(:,:,1) + Kownmina(:,:,ii+1);
 
 profit_own(:,:,ii) = repmat(Gama * z,1,na) .* (TKown .^ alfa) + ...
     (1 - deltta) * TKown + TKownmina;
+
+if Capflag ~= 0
+Borrowedown(:,:,ii) = TKownmina;
+end
 end    
 
 clear Temp Temp2 TKown TKownmina
@@ -151,15 +167,22 @@ L = (gama/w)^(1/(1-gama)) * repmat(z.^(1/(1-gama)),1,na) .* (TKemp.^...
 profit_emp(:,:,ii) = repmat(z,1,na) .* TKemp.^(alfa).* L.^(gama) - w*L...
     + TKempmina + (1 - deltta) * TKemp;
 
+if Capflag~=0
+Borrowedemp(:,:,ii) = TKempmina;
+end
 
 end
 %--------------------------------------------------------------------------
 
 % First matrix gives the profits, second matrix gives the decisions to hire
 % or not
-
+if Capflag == 0
 y(:,:,:,1) = max(profit_emp,profit_own);
 y(:,:,:,2) = (profit_emp>profit_own);
-
-
+else
+occindex = profit_emp>profit_own; %occindex 1 if hires
+Borrowedtot = Borrowedemp.*occindex + Borrowedown.*abs(occindex-1);
+Borrowedtot(Borrowedtot>0) = 0;
+y = Borrowedtot;
+end
 
