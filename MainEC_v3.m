@@ -13,12 +13,9 @@ r_bar    = 0.04;
 betta    = 0.95;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
-% Unemployment tax and benefit
-tau        = 0.05;
-
-% Job destruction and job finding parameters
+% Job destruction and job NOT finding parameters
 lambda = 0.2;
-mu     = 0.2;
+mu     = 0.1;
 
 % Production Parameters
 deltta   = 0.06;
@@ -31,25 +28,25 @@ ZDist    = 1; % Pareto, if 1. Normal if 2
 etta     = 6.7;
 sigz     = 1;
 
-psi      = 0.15; % The probability of changing the talent, then will be randomly drawn from z
+PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
 
 ettakap  = 0.05; % Two parameters that will be useful for the disutility from work
 sigkap   = 5;
 
 % The Default Parameters
-mueps    = [0.8 0.1 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 0.05 0.10];
+mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
+sigeps   = [0 2 5];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 
-xi       = 0.2; % Exemption level
+xi       = 0.3; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
-amax    = 100;
-na      = 200;
-nz      = 30;
+amax    = 200;
+na      = 120;
+nz      = 50;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
@@ -70,61 +67,161 @@ zgrid    = X(:,2);
 clear X
 
 X        = kapdist(ettakap,sigkap,nkap,KAPdist);
-Pkap     = X(1,1); 
+Pkap     = X(:,1); 
 kapgrid  = X(:,2);
 clear X
-%kapgrid(1) = 0;
-
-% Stationary Distribution Parameters
-N  = 30000;
-T  = 500;
 
 % Initial Values of the variables
-w0       = 0.9;
-r0       = [0.04 0.05 0.06];
-b0       = 0.3;
+w0       = [0.855];
+r0       = [0.0653693353653139 0.120420068213787 0.164997093537340];
+b0       = 0.2;
+% Unemployment tax and benefit
+tau        = [0.0198];
+
+% Probabilities of facing a given borrowing rate
+Pr(1,:) = linspace(0.1,0.9,nz);
+Pr(2,:) = linspace(0.4,0.05,nz);
+Pr(3,:) = linspace(0.5,0.05,nz);
+
+%Pr = rand(nr,nz);
+Pr = Pr./repmat(sum(Pr,1),nr,1);
 
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
-NN = 3e4;
-TT = 250;
+NN = 7e4;
+TT = 500;
 
-nA = 400;
+nA = 500;
 
 Agrid = adist(amin,amax,nA,Amethod);
 %--------------------------------------------------------------------------
 
 % Auxilliary Parameters
 
+%Pr   = [0.2;0.6;0.2];
 Gama = (gama^gama)/((1+gama)^(1+gama));
-
-estatdum = [(rand(NN,1)>0.2) rand(NN,T-1)];
 
 % As a benchmark for approximation, I choose highest shock, eps=eps_max and
 % low borrowing rate r_min>r_bar
 
 bnr   = 1;
 bneps = 3;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nnn          = na*nr*neps;
+kap_array    = repmat(reshape(kapgrid,1,1,nkap),nz,na,1);
+a_array      = repmat(agrid,nz,1,nkap);
+z_array      = repmat(zgrid,1,na,nkap);
+z_arrayint   = repmat(zgrid,1,nnn,nkap);
+kap_arrayint = repmat(reshape(kapgrid,1,1,nkap),nz,nnn,1);
+TS           = zeros(nz,nnn,nkap);
+
+%Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+Pr_int       = repmat(reshape(Pr',nz,1,nr),1,na,1,1,nkap);
+Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
-bigz = zstatdist(zgrid, nz,psi,NN,TT); 
+bigz   = zstatdist([1:nz]', nz,PSI,NN,TT); 
+bigkap = randsample([1:nkap]',NN,1,Pkap);
+
+bigeprobs   = rand(NN,TT);
+bigeprobs(bigeprobs(:,1)>0.5,1) = 1;
+bigeprobs(bigeprobs(:,1)<=0.5,1) = 0;
+
+bigeprobs(:,1) = bigeprobs(:,1)+1;
+
+biga = [randsample([1:nA/2],NN,1)',zeros(NN,TT-1)];
+
+occ  = zeros(NN,TT);
+ %-------------------------------------------------------------------------
+%% Government Budget Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ disttau = 100;
+ toltau  = 5e-3;
+ itertau = 1;
+ maxitertau = 20;
+ tautol     = 100;
+ tautolmax  = 1e-7;
+ tauupdate  = 0.4;
+ 
+ while disttau > toltau && itertau<maxitertau
+ 
+%--------------------------------------------------------------------------
+%% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Labor Market Loop Matrices ----------------------------------------------
+distL    = 100;
+tolL     = 6e-3+1e-16;
+maxiterL = 20;
+iterL    = 1;
+stugL    = zeros(maxiterL,3);
+wmax     = 1.2;
+wmin     = 0.6;
+mflagL    = 1;
+wtol      = 100;
+wtolmax   = 1e-7;
+tolaux   = 1e-5;
+% Capflag = 0 means that profits will be calcualted in profitcalc and not
+% the capital demand
+Capflag = 0;
+%--------------------------------------------------------------------------
+clear funcdistL
+while distL>tolL && iterL<maxiterL && wtol > wtolmax
+    
+    if iterL>2
+     
+     if fa~=fc && fb~=fc
+        
+        s = a*fb*fc/((fa-fb)*(fa-fc)) + b*fa*fc/((fb-fa)*(fb-fc))...
+            +c*fa*fb/((fc-fa)*(fc-fb));
+    else
+        s = b - fb*(b-a)/(fb-fa);
+    end;
+    
+    if (s>max((3*a+b)/4,b) || s<min((3*a+b)/4,b)) || ...
+   (mflagL==1 && abs(s-b)>=abs(b-c)/2) || (mflagL==0 && abs(s-b)>=abs(c-d)/2)...
+   || (mflagL==1 && abs(b-c)<tolaux) || (mflagL==0 && abs(c-d)<tolaux)
+        
+        s = (a+b)/2;
+        mflagL=1;
+    else
+        mflagL=0;
+    end;
+    w0 = s;
+ end;
+ %-------------------------------------------------------------------------
+ 
+%% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+distR    = 100;
+tolR     = 5e-3;
+iterR    = 1;
+maxiterR = 30;
+rtol     = 100;
+rtolmax  = 1e-7;
+rupdate  = 0.15;
+
+while distR>tolR && iterR<maxiterR 
+
+
+%--------------------------------------------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+kapgrid(1)=0;
 
 %% The Consumption matrices
 %--------------------------------------------------------------------------
 
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
-
-X = profitcalc(zgrid,agrid,r0,w0);
-businc = X(:,:,:,1);
-indhire = X(:,:,:,2); % Index indicating whether the individual hires or not
+Capflag = 0;
+X = profitcalc(zgrid,agrid,r0,w0,Capflag);
+businc   = X(:,:,:,1);
+indhire  = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
 
 % The Shock and after-shock businc - busincP. I here allow for
 % heterogeneity in shocks, meaning that neps>1 is possible
 
-X = aftershockinc(businc, epsilon, neps); % X(nz x na x nr x neps) 
+X = aftershockinc(businc, epsilon, P,neps,Capflag); % X(nz x na x nr x neps) 
 busincP = X; 
 clear X
 
@@ -169,7 +266,11 @@ Uuk = repmat(Uu,nz,1,1,nkap);
 UsBk = repmat(UsB,1,1,1,nkap);
 
 clear consw consu conssB Uu Uw UsB
+
 %--------------------------------------------------------------------------
+
+% Auxilliary Parameters II
+ATILDE       = repmat(reshape(Atilde,nz,nnn),1,1,nkap);
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
 
@@ -179,12 +280,14 @@ Vw = Vu+0.25;
 W  = log((1-betta)*w0)/((1-betta)*(1-lambda))*ones(nz,na,nkap);
 N  = log((1-betta)*b0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
 S  = log((1-betta)*w0)/((1-betta)*(1-mu))*ones(nz,na,nkap);
+ES = S;
 
 Vu0 = zeros(nz,na,nkap);
 Vw0 = Vu0 + 0.25;
 W0  = Vw0 + 0.25;
 N0  = W0 + 0.25;
 S0  = N0 + 0.25;
+ES0 = S0;
 
 elseif Vflag == 1
     
@@ -193,7 +296,7 @@ Vu0 = Vuold;
 W0  = Wold;
 N0  = Nold;
 S0  = Sold;
-
+ES0 = ESold;
 elseif Vflag == 2
     
 load('ValFun')
@@ -201,44 +304,49 @@ load('ValFun')
 W0 = W;
 N0 = N;
 S0 = S;
-
+ES0 = ES;
 end
 
 %%%%%%%%%%NEED TO CONTINUE HERE IF FAIL WITH THE OTHER OPTION%%%%%%%%%%%%%%
 
-maxiter_v = 200;
+maxiter_v = 1000;
 iter_v  = 1;
-tol_v   = 1e-3;
+tol_v   = 1e-4;
 dist_v  = 500;
-tic
+
 while iter_v<maxiter_v && dist_v>tol_v
 
-Vw = max(W0,max(S0,N0));
-Vu = max(S0,N0);
+Vw = max(W0,max(ES0,N0));
+Vu = max(ES0,N0);
 
 % Can't multiply 3d matrices that's why I first reshape Vw(nz,na,nkap) to
 % Vw(nz,na*nkap) then calculate the expected values wrt z, then reshape
 % back to EVw(1,na,nkap) and then repmat to EVw(nz,na,nkap) 
 
 
-EVw = (1-psi) * Vw + psi * repmat(reshape(ones(1,nz)*reshape(Vw,nz,na...
+EVw = (1-PSI) * Vw + PSI * repmat(reshape(ones(1,nz)*reshape(Vw,nz,na...
     *nkap)/nz,1,na,nkap),nz,1,1);
-EVu = (1-psi) * Vu + psi * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
+EVu = (1-PSI) * Vu + PSI * repmat(reshape(ones(1,nz)*reshape(Vu,nz,na...
     *nkap)/nz,1,na,nkap),nz,1,1);
 
 
 [W IW] = max(Uwk + repmat(reshape(betta * ((1 - lambda) * EVw + lambda *...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-W = reshape(W,nz,na,nkap);
+W      = reshape(W,nz,na,nkap);
 
 [N IN] = max(Uuk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-N = reshape(N,nz,na,nkap);
+N      = reshape(N,nz,na,nkap);
 
 [S IS] = max(UsBk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
     EVu),nz,1,na,nkap),1,na,1,1),[],3);
-S = reshape(S,nz,na,nkap);
+S      = reshape(S,nz,na,nkap);
 
+F      = griddedInterpolant(z_array,a_array,kap_array,S,'linear');
+
+TS     = reshape(F(z_arrayint,ATILDE,kap_arrayint),nz,na,nr,neps,nkap);
+
+ES     = reshape(sum(sum(TS .* Peps_int,4).* Pr_int,3),nz,na,nkap);
 
 
 
@@ -260,25 +368,26 @@ N = reshape(N,nz,na,nkap);
 S = reshape(S,nz,na,nkap);
 %}
 
-distVW = max(max(max(abs((W0 - W)./W))));
-distVN = max(max(max(abs((N0 - N)./N))));
-distVS = max(max(max(abs((S0 - S))./S)));
+distVW = max(max(max(abs(W0 - W)./((abs(W0)+abs(W))/2))));
+distVN = max(max(max(abs(N0 - N)./((abs(N0)+abs(N))/2))));
+distVS = max(max(max(abs(ES0 - ES)./((abs(ES0)+abs(ES))/2))));
 
 dist_v = max(distVW,max(distVN,distVS));
 
-W0 = W;
-N0 = N;
-S0 = S;
-
+W0  = W;
+N0  = N;
+S0  = S;
+ES0 = ES;
 iter_v = iter_v + 1;
 
+
 end;
-toc
+
 
 clear Vb0 Vs0 Vw0 Vtemp EVtemp Vbtemp EVbtemp Temp1 Temp2 EV EVb
 
 if Vflag == 2
-    save('ValFun','S','N','W','Vw','Vu');
+    save('ValFun','S','N','W','Vw','Vu','ES');
 end;
 
 Vflag = 1;
@@ -287,191 +396,115 @@ Sold  = S;
 Wold  = W;
 Vuold = Vu;
 Vwold = Vw;
+ESold = ES;
 
-W = reshape(permute(W,[2 3 1]),nkap*na,nz);
-S = reshape(permute(S,[2 3 1]),nkap*na,nz);
-N = reshape(permute(N,[2 3 1]),nkap*na,nz);
-
-%%---------------------------Stationary Distribution-----------------------
-
-
-
-
-
-
-
-% The occupational choice is static, so in any period those with given
-% (z,a) will choose either to work, or to start a self-employment or become
-% an employer.
-
-semp = swch_ws - swch_wb - swch_sb;
-semp(semp<1) = 0;
-bemp = swch_wb + swch_sb;
-bemp(bemp>1) = 1;
-work = ones(n_z,n_a) - semp - bemp;
-% Those who switch back from an employer to self employed or employee
-bback = abs(swch_bb-1);
-
-
-% Simulate N people over T periods and look at the last period distribution
-
-
-
-bigz   = zeros(N,T);
-bigz(:,2:end) = rand(N,T-1);
-bigz(bigz<1-psi) = 0;
-bigz(bigz>=1-psi) = 1;
-bigz(:,1) = randsample([1:n_z]',N,1);
-
-biga      = zeros(N,T);
-biga(:,1) = agrid(1); %randsample(agrid,N,1);
-
-bige      = zeros(N,T);
-
-
-for t = 2:T
-    Temp1 = bigz(:,t);
-    Temp2 = bigz(:,t-1);
-    Temp3 = randsample([1:n_z]',sum(Temp1),1);
-    Temp1(bigz(:,t)==0) = Temp2(bigz(:,t)==0);
-    Temp1(bigz(:,t)==1) = Temp3;
-    bigz(:,t) = Temp1;
-end;
-
-clear Temp1 Temp2 Temp3
-
-%---------------------------For the Stat Distribution----------------------
-% Some auxilliary matrices needed for later calculations
-iz = [1:n_z]';
-ie = 5*[1:n_e];
-
-
-gsemp = gsemp(:,:,1) .* (1 - swch_sb) + gsemp(:,:,2) .* swch_sb;
-gbemp = gbemp(:,:,1) .* (1 - swch_bb) + gbemp(:,:,2) .* swch_bb;
-gwork = gwork(:,:,1) .* (1 - swch_wb) + gwork(:,:,2) .* swch_wb;
-
-indv  = cat(3,gwork,gsemp,gbemp);
-iV    = agrid(indv);
 %--------------------------------------------------------------------------
 
-%% The Loop
+StatdistVFI;
 
-for t = 1:T
+LabMarket;
 
-[CC pos(:,1)] = min(abs(repmat(biga(:,t),1,n_a)-repmat(agrid,N,1)),[],2);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pos(agrid(pos)' - biga(:,t)<0) = pos(agrid(pos)' - biga(:,t)<0) + 1; 
-pos(pos==1)   = 2;
-pos(:,2)      = pos;
-pos(:,1)      = pos(:,2)-1;
+CapMarket;
+%{
+diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
-% I want to interpolate the occupations in the following way: If an
-% individual's asset lies between (0,0) or (1,1) meaning no occupational or
-% definite change, move on, if (0,1) or (1,0) check to which value it is
-% closer, if closer to the lower value (e.g. pos_wght<0.5) then choose 0
-% (or 1 in the latter case) and if closer to the higher value, choose 1 (or
-% 0 in the lower case)
+rold = r0;
 
-pos_wght  = (biga(:,t) - agrid(pos(:,1))')./(agrid(pos(:,2))' - agrid(pos(:,1))');
+r0 = r0.*(1+diffK);
 
-temp_work = work(n_z*(pos(:,1)-1)+bigz(:,t)) + work(n_z*(pos(:,2)-1)+bigz(:,t));
-temp_semp = semp(n_z*(pos(:,1)-1)+bigz(:,t)) + semp(n_z*(pos(:,2)-1)+bigz(:,t));
-temp_bemp = bemp(n_z*(pos(:,1)-1)+bigz(:,t)) + bemp(n_z*(pos(:,2)-1)+bigz(:,t));
+distR = max(abs(diffK))
+%}
+diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
-Temp1 = zeros(N,1);
+rnew = Klent./(Kreceived./(1+r0)) -1;
 
-Temp1(temp_work==2 | (work(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (work(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 5;
-Temp1(temp_semp==2 | (semp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (semp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 10;
-Temp1(temp_bemp==2 | (bemp(n_z*(pos(:,2)-1)+bigz(:,t))==1 & pos_wght>=0.5)...
-   | (bemp(n_z*(pos(:,1)-1)+bigz(:,t))==1 & pos_wght<0.5)) = 15;
+r0 = (1-rupdate)*r0 + rupdate*rnew;
 
-bige(:,t) = Temp1;
-clear Temp1 
-
-if t>1
-    
-    % Here I check whether the individual is an employer or not, if yes, he
-    % doesn't have to pay kappa, so his occupational choice changes
-    % relative to the previous calculation, and depends on the previous
-    % state of e
-    
-Temp1     = bige(:,t);
-temp_keep =  swch_bb(n_z*(pos(:,1)-1)+bigz(:,t)) + swch_bb(n_z*(pos(:,1)-1)+bigz(:,t));
-
-Temp1(bige(:,t-1)==15 & (temp_keep==2 | (swch_bb(n_z*(pos(:,2)-1)...
-    + bigz(:,t))==1 & pos_wght>=0.5) | (swch_bb(n_z*(pos(:,1)-1)+bigz(:,t))...
-    ==1 & pos_wght<0.5))) = 15;
-
-bige(bige(:,t-1)==15,t) = Temp1(bige(:,t-1)==15);
+iterR = iterR+1
+distR = max(abs(diffK))
 
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
 
+if iterL>2
+    fs     = funcdistL(iterL,1);
+    distL = abs(fs);
+    d = c;
+    c = b;
+    fc = fb;
+    if fa*fs<0
+        fb = fs;
+        b = s;
+    else
+        fa = fs;
+        a = s;
+    end;
+    
+    if abs(fa)<abs(fb)
+        cc  = a;
+        fcc = fa;
+        a = b;
+        fa = fb;
+        b = cc;
+        fb = fcc;
+    clear cc fcc
+    end;
 
+elseif iterL ==2
+    fa = funcdistL(iterL-1,1);
+    fb = funcdistL(iterL,1);
+     a = funcdistL(iterL-1,2);
+     b = funcdistL(iterL,2);
+     if abs(fa)<abs(fb)
+         temp  =   a;
+         ftemp = fa;
+         a     = b;
+         fa    = fb;
+         b     = temp;
+         fb    = ftemp;
+     end;
+     fc = fa;
+     c  = a;
+end;
 
-biga(:,t+1) = interpn(iz,agrid,ie,iV,bigz(:,t),biga(:,t),bige(:,t));
-clear pos
+stugL(iterL,:) = [iterL distL w0];
+
+iterL = iterL + 1;
+Lerflag = 0;
+
+if iterL == 2;
+     w0 = wmax;
+end;
+
+if iterL>2
+wtol = abs(funcdistL(iterL-1,2)-funcdistL(iterL-2,2))/funcdistL(iterL-2,2);
+end;
+
+disp('Iter, Labor Distance, wage rate')
+xx=toc;
+disp([iterL [] distL [] w0 ])
+disp('Time')
+disp([xx])
+end;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nempshare = sum(OCC==1)/NN;
+
+taunew = b0*nempshare/(1-nempshare);
+
+disttau = abs(tau-taunew)*2/(tau+taunew)
+
+if taunew>tau
+tau = (1-tauupdate)*tau + tauupdate*taunew;
+else
+tau = taunew;
 end
-toc
+itertau = itertau+1
 
-
-
-%---------------------------Labor Demand-----------------------------------
-
-employer = (bige(:,end)==15);
-zemp     = employer.*z(bigz(:,end));
-
-lemp = zemp.^(1/(1-nu)) * ((1+r_bar)/alfa)^(alfa/(nu-1)) * (w/betta)^((1-alfa)/(nu-1));
-LD = sum(lemp)/N;
-
-
-
-disp('share employer')
-sum(bige(:,end)==15)/N
-
-
-disp('share self employed')
-sum(bige(:,end)==10)/N
-
-disp('Labor Demand')
-LD
-
-histogram(bige(:,end))
-
-% bige = bige(:,end);
-% biga = biga(:,end);
-
-toc
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+end;
 
 
 

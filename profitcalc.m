@@ -183,6 +183,7 @@ else
 occindex = profit_emp>profit_own; %occindex 1 if hires
 Borrowedtot = Borrowedemp.*occindex + Borrowedown.*abs(occindex-1);
 Borrowedtot(Borrowedtot>0) = 0;
-y = Borrowedtot;
+y(:,:,:,1) = abs(Borrowedtot);
+y(:,:,:,2) = max(profit_emp,profit_own);
 end
 
