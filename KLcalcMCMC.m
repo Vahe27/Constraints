@@ -175,5 +175,7 @@ KD = Kempmina(:,2:end).*occindex + Kownmina(:,2:end).*abs(occindex-1);
 
 y(:,:,1) = LD;
 y(:,:,2) = occindex;
-y(:,:,3) = KD;
+y(:,:,3) = KD./repmat(1+r,nz,1);
+y(:,:,4) = profit_emp.*(occindex) + profit_own.*(1-occindex);
+
 end

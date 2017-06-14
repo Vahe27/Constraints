@@ -3,14 +3,15 @@
 % calculation of profits, if equal to 1, only calculates the capital
 % demand
 
-Capflag = 1;
-X = profitcalc(zgrid,Agrid,r0,w0,Capflag);
-BorrowK = X(:,:,:,1);
-businc  = X(:,:,:,2);
 
-DefaultMatrix = aftershockinc(X,epsilon,P,neps,Capflag);
 
-clear X
+KDEF = CapDefault(BIGZ(OCC==3),BIGA(OCC==3),KD,occindex,r0,w0,...
+    income,epsilon,P);
+
+WGHTKDEF = sum(abs(KDEF).*Pr)/NN;
+WGHTKD   = sum(abs(KD) .* Pr)/NN;
+
+%{
 
 % I get the default matrix which gives the capital that a given type (z,a)
 % defaults on when facing interest rate r on average (taken into account
@@ -45,3 +46,4 @@ Kreceived = (KD-KDEF).*(1+r0);
 
 % You can get a multidimensional brent by having a loop for each value of r
 % and inside the loop you have adjustments done by single dimensional brent
+%}

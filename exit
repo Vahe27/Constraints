@@ -1,0 +1,89 @@
+[33mcommit d5da70a316429f4c39f3b92da988bfb2aa61de27[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Tue Jun 6 18:30:23 2017 +0200
+
+    Make VFI faster
+
+[33mcommit a80538a4ea5afe2aff1e160550c3c9e1d882db47[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Sat Jun 3 09:55:11 2017 +0200
+
+    adding capital market
+
+[33mcommit c3fab9a5106b40b3329c1085f93b0e8cfb7e635e[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Fri May 19 19:30:26 2017 +0200
+
+    Capital Market
+
+[33mcommit 07dd6ff54c8c595c388116f1e050649f7d407ba1[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Wed May 17 19:26:55 2017 +0200
+
+    Adding the Labor Market
+
+[33mcommit da7e3abb3ca2b8978f4d11165d862a9df04b6522[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Thu May 11 18:38:55 2017 +0200
+
+    switch to the VFI
+
+[33mcommit b6ea6460b05d65c80e688c15785f8febb3ea061a[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Mon May 8 19:21:25 2017 +0200
+
+    Add the occupational choice thresholds
+
+[33mcommit d9b5196848977ce91c527c51016c794ac680512c[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Fri May 5 19:31:57 2017 +0200
+
+    EndGrid done
+
+[33mcommit 94108906b5080091536244aa83ea84fe3363f963[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Wed May 3 17:07:35 2017 +0200
+
+    Adding Endogenous Grid to Speed up the Code
+
+[33mcommit 733afbb3345b3bb827b9497484b6d047f7dc1064[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Mon Apr 24 09:31:44 2017 +0200
+
+    VFI works, need to look at endogenous grid option
+
+[33mcommit 4b75ec0ee1193831cb22ef4afcb870a3e47b158b[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Fri Apr 21 18:19:06 2017 +0200
+
+    version 3 incorporates cash-on-hand and asset grids, version 23 is incoplete, need to continue work from the VFI if needed
+
+[33mcommit 8479ab49552269e89118788ece398c0a56974169[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Thu Apr 13 16:01:56 2017 +0200
+
+    Adding utilities and consumption
+
+[33mcommit cc8efc5f337ce3bd76b49cf07dad6302aa5974f3[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Wed Apr 12 17:58:36 2017 +0200
+
+    No changes made, just created the profit func
+
+[33mcommit bef642e9a98b49fd8217d6ca61aef8533af950fe[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Wed Apr 12 09:53:33 2017 +0200
+
+    Creating the profit function
+
+[33mcommit 366b626c98a564acd56155684e8e9a207b7ab4a3[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Tue Apr 11 16:06:38 2017 +0200
+
+    New functions
+
+[33mcommit dda59f6259c38cd82a5222a6e04fb06c065ad134[m
+Author: Vahe <vahekrrikyan@gmail.com>
+Date:   Tue Apr 11 12:00:56 2017 +0200
+
+    Initial save
