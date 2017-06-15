@@ -12,17 +12,17 @@ global r_bar deltta alfa nu gama Gama xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.942;
+betta    = 0.935;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
 lambda = 0.2;
-mu     = 0.1;
+mu     = 0.4;
 
 % Production Parameters
 deltta   = 0.06;
 alfa     = 0.3;
-nu       = 0.85;
+nu       = 0.84;
 gama     = nu - alfa;
 
 % Distribution Parameters
@@ -37,7 +37,7 @@ sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 7 10];
+sigeps   = [0 7 13];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -80,7 +80,7 @@ w0       = [1];
 r0       = [0.04 0.05 0.06];
 b0       = 0.01;
 % Unemployment tax and benefit
-tau        = [0.4];
+tau        = [0.01];
 
 % Probabilities of facing a given borrowing rate
 Pr(1,:) = linspace(0.1,0.9,nz);
@@ -163,7 +163,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.2;
+wmax     = 1;
 wmin     = 0.6;
 mflagL    = 1;
 wtol      = 100;
@@ -208,7 +208,7 @@ rng(2)
 %% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %{%}
 distR    = 100;
-tolR     = 2.5e-3;
+tolR     = 3e-3;
 iterR    = 1;
 maxiterR = 60;
 rtol     = 100;
@@ -421,8 +421,6 @@ imaxS(Slow<-70) = max(floor(ilowS(Slow<-70)),1);
 end
 
 
-
-
 Wmin = Uwk(indU+iminW) + VWT(indV+iminW);
 Wmax = Uwk(indU+imaxW) + VWT(indV+imaxW);
 Nmin = Uuk(indU+iminN) + VNT(indV+iminN);
@@ -536,6 +534,8 @@ diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
 
 rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1;
+
+rold = r0;
 
 r0 = (1-rupdate)*r0 + rupdate*rnew;
 
