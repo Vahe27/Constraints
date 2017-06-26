@@ -12,7 +12,7 @@ global r_bar deltta alfa nu gama Gama xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.935;
+betta    = 0.937;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
@@ -27,7 +27,7 @@ gama     = nu - alfa;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 8.2;
+etta     = 7.5;
 sigz     = 1;
 
 PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
@@ -37,12 +37,12 @@ sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 7 12];
+sigeps   = [0 1 2];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 
-xi       = 0.3; % Exemption level
+xi       = 0.35; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -76,10 +76,10 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.5;
-r0       = [0.04 0.05 0.06];
-b0       = 0.3;
-tau      = [0.01];
+w0       = 1;
+r0       = [0.05 0.05 0.05];
+b0       = 0.2;
+tau      =  [0.01];
 tauinit  = tau;
 r0init   = r0;
 
@@ -148,11 +148,25 @@ disttau = 100;
  maxitertau = 20;
  tautol     = 100;
  tautolmax  = 1e-7;
- tauupdate  = 0.2;
-%{
- while disttau > toltau && itertau<maxitertau
-%}
-%--------------------------------------------------------------------------
+ tauupdate  = 0.3;
+ %% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Update tau if there is a large change in wage rate.
+
+%{%}
+distR    = 100;
+tolR     = 6e-3;
+iterR    = 1;
+maxiterR = 60;
+rtol     = 100;
+rtolmax  = 1e-7;
+rupdate  = 0.2*ones(1,nr);
+rupdateinit = rupdate;
+while distR>tolR && iterR<maxiterR 
+
+LFLAG    = 0;
+
+
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Labor Market Loop Matrices ----------------------------------------------
@@ -162,7 +176,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 0.85;
+wmax     = 1.2;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -203,32 +217,7 @@ rng(2)
  end;
  %-------------------------------------------------------------------------
  
-%% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%{%}
 
-% Update tau if there is a large change in wage rate.
-
-if iterL==1
-    wageold = w0;
-elseif abs(wageold-w0)*2/(wageold+w0)>0.2
-    tau = tauinit;
-    r0  = r0init;
-    wageold = w0;
-    
-end
-
-distR    = 100;
-tolR     = 1.3e-2;
-iterR    = 1;
-maxiterR = 60;
-rtol     = 100;
-rtolmax  = 1e-7;
-rupdate  = 0.15*ones(1,nr);
-rupdateinit = rupdate;
-while distR>tolR && iterR<maxiterR 
-
-
-%--------------------------------------------------------------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 kapgrid(1)=0;
 
@@ -528,45 +517,20 @@ Klent     = WGHTKD.*(1+r_bar);
 diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
 
-rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1;
 
-rold = r0;
-
-rupdate(abs(r0-rnew)<0.03) = rupdateinit(abs(r0-rnew)<0.03)/3;
-rupdate(abs(r0-rnew)>0.03) = rupdateinit(abs(r0-rnew)>0.03);
-
-r0 = (1-rupdate).*r0 + rupdate.*rnew;
-
-nempshare = sum(OCC==1)/NN;
-
-taunew = b0*nempshare/(1-nempshare);
-
-disttau = abs(tau-taunew)*2/(tau+taunew);
-
-if taunew>tau
-tau = (1-tauupdate)*tau + tauupdate*taunew;
-else
-tau = taunew;
-end
-
-iterR = iterR+1
-distr = max(abs(diffK));
-
-distR = max(distr,disttau)
-disp(rnew)
-disp(rold)
-%{
-if iterR==round(maxiterR*0.5)
-    rupdate = 0.05;
-    tolR    = tolR*2;
-elseif iterR == round(maxiterR*0.7)
-    rupdate = 0.03;
-    tolR    = 1e-2;
-end
-%}
-end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
+
+if iterL==2 && sign(funcdistL(iterL,1)) == sign(funcdistL(iterL-1,1))
+    if  sign(funcdistL(iterL,1))== -1;
+        wmax  = wmax*1.05;
+        iterL = iterL - 1;
+    elseif sign(funcdistL(iterL,1))== 1;
+        wmax  = wmax*0.95;
+        iterL = iterL - 1;
+    end
+end
+      
 
 if iterL>2
     fs     = funcdistL(iterL,1);
@@ -614,8 +578,17 @@ stugL(iterL,:) = [iterL LS LD w0];
 iterL = iterL + 1;
 Lerflag = 0;
 
+wold = w0;
+
 if iterL == 2;
      w0 = wmax;
+     if LFLAG == 1;
+         if funcdistL(1,1)<0;
+         w0 = wold*1.025;
+         else 
+         w0 = wold*0.975;
+         end
+     end
 end;
 
 if iterL>2
@@ -627,13 +600,62 @@ xx=toc;
 disp([iterL [] distL [] w0 ])
 disp('Time')
 disp([xx])
+%{
+x=BIGZ(OCC==3);
+histogram(x(KDEF(:,1)==0))
+hold on
+histogram(x(KDEF(:,1)<0))
 
+rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1
+
+asset = BIGA(OCC==3);
+talent = BIGZ(OCC==3);
+%}
 
 % Make sure you choose the wage that leads to lowest possible difference
 % between the demand and supply of labor
 
 end;
+LFLAG = 1;
+
+rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1;
+
+rold = r0;
+
+nempshare = sum(OCC==1)/NN;
+
+taunew = b0*nempshare/(1-nempshare);
+
+%{%}
+
+rupdate(abs(r0-rnew)<0.03) = rupdateinit(abs(r0-rnew)<0.03)/6;
+rupdate(abs(r0-rnew)>0.03) = rupdateinit(abs(r0-rnew)>0.03);
+
+r0 = (1-rupdate).*r0 + rupdate.*rnew;
+
+
+%{%}
+disttau = abs(tau-taunew)*2/(tau+taunew);
+
+if taunew>tau
+tau = (1-tauupdate)*tau + tauupdate*taunew;
+else
+tau = taunew;
+end
+
+iterR = iterR+1
+distr = max(abs(diffK));
+
+distR = max(distr,disttau)
+disp(rnew)
+disp('The Right One')
+disp(rold)
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Concentrate only on r0 as it is clearing the market and not rnew!
 
 % FLAGUNCLEARL is a flag that if equal to 1 indicates that the labor market
 % hasn't cleared, so then I find the wage that created lowest dist(LD,LS)
