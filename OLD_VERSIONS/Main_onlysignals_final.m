@@ -41,7 +41,7 @@ sigeps   = [0 1 2];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
-kmethod  = 0; % Method with how to create the capital grid, 0 linear, 1 exponential
+
 xi       = 0.35; % Exemption level
 
 % Grid Parameters
@@ -54,9 +54,6 @@ nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
-nk      = 100; % The number of capital grid
-
-
 
 % The Grids
 Amethod   = 1; % 1 if linear, 2 if logarithmic
@@ -79,8 +76,8 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8;
-r0       = ones(nr,nk).*0.05; % Now For each signal and amount there is a borrowing rate
+w0       = 1;
+r0       = [0.05 0.05 0.05];
 b0       = 0.2;
 tau      =  [0.01];
 tauinit  = tau;
@@ -142,18 +139,32 @@ Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 
 StatesforStatDist;
 
-%--------------------------------------------------------------------------
+ %-------------------------------------------------------------------------
+%% Government Budget Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+disttau = 100;
+ toltau  = 5e-3;
+ itertau = 1;
+ maxitertau = 20;
+ tautol     = 100;
+ tautolmax  = 1e-7;
+ tauupdate  = 0.3;
+ %% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Update tau if there is a large change in wage rate.
+
+%{%}
+distR    = 100;
+tolR     = 6e-3;
+iterR    = 1;
+maxiterR = 60;
+rtol     = 100;
+rtolmax  = 1e-7;
+rupdate  = 0.2*ones(1,nr);
+rupdateinit = rupdate;
+while distR>tolR && iterR<maxiterR 
+
 LFLAG    = 0;
-
-%% Capital and Government Tax Loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-rupdate = 0.25;
-iterR   = 1;
-tolR    = 1e-3;
-distR   = 100;
-maxiterR= 100;
-
-
 
 
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -215,13 +226,8 @@ kapgrid(1)=0;
 
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
-%--------------------------------------------------------------------------
-% The Capital grid: New Addition, each firm chooses the amount that
-% maximizes its profit, but the capital choice is not continuous.
-
-kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
-X     = profitcalc2(zgrid,agrid,kgrid,r0,w0);
-%--------------------------------------------------------------------------
+Capflag = 0;
+X = profitcalc(zgrid,agrid,r0,w0,Capflag);
 businc   = X(:,:,:,1);
 indhire  = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
@@ -491,21 +497,24 @@ rng(5);
 Pr =rand(nr,length(BIGA(OCC==3)))';
 Pr = Pr./repmat(sum(Pr,2),1,nr);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,KLflag);
+X = KLcalcMCMC(BIGZ(OCC==3),BIGA(OCC==3),r0,w0,KLflag);
 LD       = X(:,:,1);
 occindex = X(:,:,2); % occindex=1 if chooses to hire
-KDindex  = X(:,:,3);
+KD       = X(:,:,3);
 income   = X(:,:,4);
-KD       = X(:,:,5);
-clear X
+
+
 LabMarket;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-KMarket;
+CapMarket;
 
 %{%}
+Kreceived = (WGHTKD - WGHTKDEF).*(1+r0);
+Klent     = WGHTKD.*(1+r_bar);
 
+diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
 
 
@@ -609,7 +618,7 @@ talent = BIGZ(OCC==3);
 end;
 LFLAG = 1;
 
-
+rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1;
 
 rold = r0;
 
@@ -617,18 +626,32 @@ nempshare = sum(OCC==1)/NN;
 
 taunew = b0*nempshare/(1-nempshare);
 
+%{%}
+
+rupdate(abs(r0-rnew)<0.03) = rupdateinit(abs(r0-rnew)<0.03)/6;
+rupdate(abs(r0-rnew)>0.03) = rupdateinit(abs(r0-rnew)>0.03);
+
+r0 = (1-rupdate).*r0 + rupdate.*rnew;
+
+
+%{%}
 disttau = abs(tau-taunew)*2/(tau+taunew);
 
+if taunew>tau
+tau = (1-tauupdate)*tau + tauupdate*taunew;
+else
+tau = taunew;
+end
 
-distr = max(max(abs(diffK)));
+iterR = iterR+1
+distr = max(abs(diffK));
 
-iterR = iterR+1;
+distR = max(distr,disttau)
+disp(rnew)
+disp('The Right One')
+disp(rold)
+end
 
-r0(abs(diffK)<tolR*10) = rupdate*0.1.*rnew(abs(diffK)<tolR*10)...
-    + (1-rupdate*0.1).*r0(abs(diffK)<tolR*10);
-
-r0(abs(diffK)<tolR*100) = rupdate*0.5.*rnew(abs(diffK)<tolR*100)...
-    + (1-rupdate*0.5).*r0(abs(diffK)<tolR*100);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -47,3 +47,10 @@ Kreceived = (KD-KDEF).*(1+r0);
 % You can get a multidimensional brent by having a loop for each value of r
 % and inside the loop you have adjustments done by single dimensional brent
 %}
+
+Kreceived = (WGHTKD - WGHTKDEF).*(1+r0);
+Klent     = WGHTKD.*(1+r_bar);
+
+diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
+
+rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1;
