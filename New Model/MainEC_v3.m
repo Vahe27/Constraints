@@ -12,22 +12,22 @@ global r_bar deltta alfa nu gama Gama xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.937;
+betta    = 0.945;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
 lambda = 0.2;
-mu     = 0.4;
+mu     = 0.1;
 
 % Production Parameters
 deltta   = 0.06;
-alfa     = 0.3;
-nu       = 0.84;
+alfa     = 0.28;
+nu       = 0.85;
 gama     = nu - alfa;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 7.5;
+etta     = 6.7;
 sigz     = 1;
 
 PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
@@ -37,26 +37,23 @@ sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 1 5];
+sigeps   = [0 2 5];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
-kmethod  = 0; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.35; % Exemption level
+
+xi       = 0.3; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
 amax    = 350;
-na      = 130;
-nap     = 400;
+na      = 100;
+nap     = 100;
 nz      = 50;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
 nr      = 3; % Number of interest rates a self-emp can face
-nk      = 100; % The number of capital grid
-
-
 
 % The Grids
 Amethod   = 1; % 1 if linear, 2 if logarithmic
@@ -79,12 +76,11 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8;
-r0       = ones(nr,nk).*0.05; % Now For each signal and amount there is a borrowing rate
-b0       = 0.01;
-tau      =  [0.001];
-tauinit  = tau;
-r0init   = r0;
+w0       = [1];
+r0       = [0.04 0.05 0.06];
+b0       = 0.15;
+% Unemployment tax and benefit
+tau        = [0.0198];
 
 % Probabilities of facing a given borrowing rate
 Pr(1,:) = linspace(0.1,0.9,nz);
@@ -121,7 +117,6 @@ bnr   = 1;
 bneps = 3;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 nnn          = na*nr*neps;
-nstate       = nz*na*nkap;
 kap_array    = repmat(reshape(kapgrid,1,1,nkap),nz,na,1);
 a_array      = repmat(agrid,nz,1,nkap);
 z_array      = repmat(zgrid,1,na,nkap);
@@ -141,31 +136,30 @@ Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 % The Stationary Distribution of Talents
 
 StatesforStatDist;
-
+%{
+ %-------------------------------------------------------------------------
+%% Government Budget Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ disttau = 100;
+ toltau  = 5e-3;
+ itertau = 1;
+ maxitertau = 20;
+ tautol     = 100;
+ tautolmax  = 1e-7;
+ tauupdate  = 0.4;
+ 
+ while disttau > toltau && itertau<maxitertau
+ %}
 %--------------------------------------------------------------------------
-LFLAG    = 0;
-
-%% Capital and Government Tax Loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-rupdate = 0.10;
-iterR   = 1;
-tolR    = 1e-3;
-distR   = 100;
-maxiterR= 100;
-
-while distR>tolR && iterR<maxiterR
-
-
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Labor Market Loop Matrices ----------------------------------------------
-
 distL    = 100;
 tolL     = 0.0055;
-maxiterL = 25;
+maxiterL = 20;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.2;
+wmax     = 1.5;
+wmin     = 0.6;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -175,15 +169,13 @@ tolaux   = 1e-5;
 Capflag = 0;
 %--------------------------------------------------------------------------
 clear funcdistL
-FLAGUNCLEARL = 0;
-
 while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
 %%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
 rng(2)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     
-    if iterL>2 
+    if iterL>2
      
      if fa~=fc && fb~=fc
         
@@ -206,7 +198,20 @@ rng(2)
  end;
  %-------------------------------------------------------------------------
  
+%% Capital Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%{
+distR    = 100;
+tolR     = 5e-3;
+iterR    = 1;
+maxiterR = 30;
+rtol     = 100;
+rtolmax  = 1e-7;
+rupdate  = 0.15;
 
+while distR>tolR && iterR<maxiterR 
+%}
+
+%--------------------------------------------------------------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 kapgrid(1)=0;
 
@@ -215,13 +220,8 @@ kapgrid(1)=0;
 
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
-%--------------------------------------------------------------------------
-% The Capital grid: New Addition, each firm chooses the amount that
-% maximizes its profit, but the capital choice is not continuous.
-
-kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
-X     = profitcalc2(zgrid,agrid,kgrid,r0,w0);
-%--------------------------------------------------------------------------
+Capflag = 0;
+X = profitcalc(zgrid,agrid,r0,w0,Capflag);
 businc   = X(:,:,:,1);
 indhire  = X(:,:,:,2); % Index indicating whether the individual hires or not
 clear X
@@ -321,15 +321,11 @@ maxiter_v = 1000;
 iter_v  = 1;
 tol_v   = 1e-4;
 dist_v  = 500;
-
-Uwk = reshape(permute(Uwk,[2 1 4 3]),nz*na*nkap,nap)';
-Uuk = reshape(permute(Uuk,[2 1 4 3]),nz*na*nkap,nap)';
-UsBk =reshape(permute(UsBk,[2 1 4 3]),nz*na*nkap,nap)';
-
+tic
 while iter_v<maxiter_v && dist_v>tol_v
 
-Vw = max(W,max(ES,N));
-Vu = max(ES,N);
+Vw = max(W0,max(ES0,N0));
+Vu = max(ES0,N0);
 
 % Can't multiply 3d matrices that's why I first reshape Vw(nz,na,nkap) to
 % Vw(nz,na*nkap) then calculate the expected values wrt z, then reshape
@@ -349,88 +345,18 @@ EVw = FEVw(znarray,anarray,kapnarray);
 EVu = FEVu(znarray,anarray,kapnarray);
 end
 
+[W IW] = max(Uwk + repmat(reshape(betta * ((1 - lambda) * EVw + lambda *...
+    EVu),nz,1,nap,nkap),1,na,1,1),[],3);
+W      = reshape(W,nz,na,nkap);
 
-iminW = ones(nstate,1);
-imaxW = ones(nstate,1)*nap;
-ilowW = ones(nstate,1)*floor(nap/2);
-iupW  = ilowW+1;
+[N IN] = max(Uuk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
+    EVu),nz,1,nap,nkap),1,na,1,1),[],3);
+N      = reshape(N,nz,na,nkap);
 
-iminS = ones(nstate,1);
-imaxS = ones(nstate,1)*nap;
-ilowS = ones(nstate,1)*floor(nap/2);
-iupS  = ilowS+1;
+[S IS] = max(UsBk + repmat(reshape(betta * ((1 - mu) * EVw + mu * ...
+    EVu),nz,1,nap,nkap),1,na,1,1),[],3);
 
-iminN = ones(nstate,1);
-imaxN = ones(nstate,1)*nap;
-ilowN = ones(nstate,1)*floor(nap/2);
-iupN  = ilowN+1;
-
-
-VWT = permute(betta*((1 - lambda) * EVw + lambda *EVu),[2 1 3]);
-VNT = permute(betta*((1 - mu) * EVw + mu *EVu),[2 1 3]);
-
-indU = ([1:nstate]'-1)*nap;
-indV = repmat(([1:nz*nkap]-1)*nap,na,1);
-indV = indV(:);
-
-while max(imaxW-iminW)>1
-ilowW = ones(nstate,1).*floor((iminW+imaxW)/2);
-iupW  = ilowW+1;
-iupW(iupW>nap)=nap;
-
-Wlow = Uwk(indU+ilowW) + VWT(indV+ilowW);
-Wup  = Uwk(indU+iupW) + VWT(indV+iupW);
-
-iminW(Wlow<=Wup & Wlow>-70) = iupW(Wlow<=Wup & Wlow>-70);
-imaxW(Wlow>Wup) = ilowW(Wlow>Wup);
-
-imaxW(Wlow<-70) = max(floor(ilowW(Wlow<-70)),1);
-
-ilowN = ones(nstate,1).*floor((iminN+imaxN)/2);
-iupN  = ilowN+1;
-iupN(iupN>nap)=nap;
-
-Nlow = Uuk(indU+ilowN) + VNT(indV+ilowN);
-Nup  = Uuk(indU+iupN) + VNT(indV+iupN);
-
-iminN(Nlow<=Nup & Nlow>-70) = iupN(Nlow<=Nup & Nlow>-70);
-imaxN(Nlow>Nup) = ilowN(Nlow>Nup);
-
-imaxN(Nlow<-70) = max(floor(ilowN(Nlow<-70)),1);
-
-
-ilowS = ones(nstate,1).*floor((iminS+imaxS)/2);
-iupS  = ilowS+1;
-iupS(iupS>nap)=nap;
-
-Slow = UsBk(indU+ilowS) + VNT(indV+ilowS);
-Sup  = UsBk(indU+iupS) + VNT(indV+iupS);
-
-iminS(Slow<=Sup & Slow>-70) = iupS(Slow<=Sup & Slow>-70);
-imaxS(Slow>Sup) = ilowS(Slow>Sup);
-
-imaxS(Slow<-70) = max(floor(ilowS(Slow<-70)),1);
-
-end
-
-
-Wmin = Uwk(indU+iminW) + VWT(indV+iminW);
-Wmax = Uwk(indU+imaxW) + VWT(indV+imaxW);
-Nmin = Uuk(indU+iminN) + VNT(indV+iminN);
-Nmax = Uuk(indU+imaxN) + VNT(indV+imaxN);
-Smin = UsBk(indU+iminS) + VNT(indV+iminS);
-Smax = UsBk(indU+imaxS) + VNT(indV+imaxS);
-
-W = reshape(max(Wmin,Wmax),na,nz,nkap);
-N = reshape(max(Nmin,Nmax),na,nz,nkap);
-S = reshape(max(Smin,Smax),na,nz,nkap);
-
-
-
-W = permute(W,[2 1 3]);
-N = permute(N,[2 1 3]);
-S = permute(S,[2 1 3]);
-
+S      = reshape(S,nz,na,nkap);
 
 F      = griddedInterpolant(z_array,a_array,kap_array,S,'linear');
 
@@ -453,7 +379,7 @@ ES0 = ES;
 iter_v = iter_v + 1;
 
 end;
-
+toc
 clear Vb0 Vs0 Vw0 Vtemp EVtemp Vbtemp EVbtemp Temp1 Temp2 EV EVb
 
 if Vflag == 2
@@ -467,15 +393,9 @@ Wold  = W;
 Vuold = Vu;
 Vwold = Vw;
 ESold = ES;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-IW    = imaxW.*(Wmax>=Wmin) + iminW.*(Wmax<Wmin);
-IW    = permute(reshape(IW,na,nz,nkap),[2 1 3]);
 
-IN    = imaxN.*(Nmax>=Nmin) + iminN.*(Nmax<Nmin);
-IN    = permute(reshape(IN,na,nz,nkap),[2 1 3]);
-
-IS    = imaxS.*(Smax>=Smin) + iminS.*(Smax<Smin);
-IS    = permute(reshape(IS,na,nz,nkap),[2 1 3]);
+IW    = reshape(IW,nz,na,nkap);
+IN    = reshape(IN,nz,na,nkap);
 
 
 %--------------------------------------------------------------------------
@@ -491,37 +411,31 @@ rng(5);
 Pr =rand(nr,length(BIGA(OCC==3)))';
 Pr = Pr./repmat(sum(Pr,2),1,nr);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,KLflag);
+X = KLcalcMCMC(BIGZ(OCC==3),BIGA(OCC==3),r0,w0,KLflag);
 LD       = X(:,:,1);
-occindex = X(:,:,2); % occindex=1 if chooses to hire
-KDindex  = X(:,:,3);
-income   = X(:,:,4);
-KD       = X(:,:,5);
-clear X
+occindex = X(:,:,2);
+KD       = X(:,:,3);
+
+
 LabMarket;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%{
+CapMarket;
 
-KMarket;
+diffK = (Klent-Kreceived)*2./(Klent+Kreceived);
 
-%{%}
+rnew = Klent./(Kreceived./(1+r0)) -1;
 
+r0 = (1-rupdate)*r0 + rupdate*rnew;
 
+iterR = iterR+1
+distR = max(abs(diffK))
 
-
+end
+%}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
-
-if iterL==2 && sign(funcdistL(iterL,1)) == sign(funcdistL(iterL-1,1))
-    if  sign(funcdistL(iterL,1))== -1;
-        wmax  = wmax*1.05;
-        iterL = iterL - 1;
-    elseif sign(funcdistL(iterL,1))== 1;
-        wmax  = wmax*0.95;
-        iterL = iterL - 1;
-    end
-end
-      
 
 if iterL>2
     fs     = funcdistL(iterL,1);
@@ -569,17 +483,8 @@ stugL(iterL,:) = [iterL LS LD w0];
 iterL = iterL + 1;
 Lerflag = 0;
 
-wold = w0;
-
 if iterL == 2;
      w0 = wmax;
-     if LFLAG == 1;
-         if funcdistL(1,1)<0;
-         w0 = wold*1.025;
-         else 
-         w0 = wold*0.975;
-         end
-     end
 end;
 
 if iterL>2
@@ -591,52 +496,23 @@ xx=toc;
 disp([iterL [] distL [] w0 ])
 disp('Time')
 disp([xx])
-%{
-x=BIGZ(OCC==3);
-histogram(x(KDEF(:,1)==0))
-hold on
-histogram(x(KDEF(:,1)<0))
-
-rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1
-
-asset = BIGA(OCC==3);
-talent = BIGZ(OCC==3);
-%}
-
-% Make sure you choose the wage that leads to lowest possible difference
-% between the demand and supply of labor
-
 end;
-LFLAG = 1;
-
-
-
-rold = r0;
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%{
 nempshare = sum(OCC==1)/NN;
 
 taunew = b0*nempshare/(1-nempshare);
 
-disttau = abs(tau-taunew)*2/(tau+taunew);
+disttau = abs(tau-taunew)*2/(tau+taunew)
 
-
-distR = max(max(abs(diffK)))
-
-iterR = iterR+1;
-
-r0                     = rupdate.*rnew + (1-rupdate).*r0;
-
-r0(abs(diffK)<tolR*10) = rupdate*0.1.*rnew(abs(diffK)<tolR*10)...
-    + (1-rupdate*0.1).*r0(abs(diffK)<tolR*10);
-
-r0(abs(diffK)<tolR*100) = rupdate*0.5.*rnew(abs(diffK)<tolR*100)...
-    + (1-rupdate*0.5).*r0(abs(diffK)<tolR*100);
+if taunew>tau
+tau = (1-tauupdate)*tau + tauupdate*taunew;
+else
+tau = taunew;
+end
+itertau = itertau+1
 
 end;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%}
 
-% Concentrate only on r0 as it is clearing the market and not rnew!
 
-% FLAGUNCLEARL is a flag that if equal to 1 indicates that the labor market
-% hasn't cleared, so then I find the wage that created lowest dist(LD,LS)
-% and run the model under that wage

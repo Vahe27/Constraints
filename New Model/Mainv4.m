@@ -1,3 +1,13 @@
+%% IMPORTANT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%{ 
+In this version I update the model to incorporate for the fact that the
+banks gain information about the riskiness of the entrepreneurs by the
+amount they borrow. One additional thing is that the banks cannot produce
+infinite contracts so they will bunch entrepreneurs with similar default
+risks into one group, there will be a finite number of groups, thus pooling
+%}
+
 clear all
 Vflag = 0; % 2 loads the Vfuns from other simulations as starting values, 
 % 1 doesn't make sense in here at the code will give an error, 0 uses zeros
@@ -37,12 +47,12 @@ sigkap   = 5;
 
 % The Default Parameters
 mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 1 5];
+sigeps   = [0 0.7 5];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 0; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.35; % Exemption level
+xi       = 0.5; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -53,8 +63,8 @@ nz      = 50;
 nkap    = 7;
 ne      = 3; % The number of occupations
 neps    = 3;
-nr      = 3; % Number of interest rates a self-emp can face
-nk      = 100; % The number of capital grid
+nr      = 1; % Number of interest rates a self-emp can face
+nk      = 400; % The number of capital grid
 
 
 
@@ -80,23 +90,28 @@ clear X
 
 % Initial Values of the variables
 w0       = 0.8;
-r0       = ones(nr,nk).*0.05; % Now For each signal and amount there is a borrowing rate
-b0       = 0.01;
+r0       = ones(nr,nk).*0.1; % Now For each signal and amount there is a borrowing rate
+b0       = 0.4;
 tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
-
+%--------------------------------------------------------------------------
 % Probabilities of facing a given borrowing rate
+
+if nr == 1 
+    Pr =1;
+else
+
 Pr(1,:) = linspace(0.1,0.9,nz);
 Pr(2,:) = linspace(0.4,0.05,nz);
 Pr(3,:) = linspace(0.5,0.05,nz);
 
-%Pr = rand(nr,nz);
-Pr = Pr./repmat(sum(Pr,1),nr,1);
-
+Pr./repmat(sum(Pr,1),nr,1);
+end
+%--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
-NN = 7e4;
+NN = 1e5;
 TT = 350;
 
 nA   = 500;
@@ -133,9 +148,11 @@ znarray      = repmat(zgrid,1,nap,nkap);
 kapnarray    = repmat(reshape(kapgrid,1,1,nkap),nz,nap,1);
 anarray      = repmat(apgrid,nz,1,nkap);
 
-
-%Pr_int       = repmat(reshape(Pr,1,1,nr,1,1),nz,na,1,1,nkap);
+if nr == 1
+    Pr_int = 1;
+else
 Pr_int       = repmat(reshape(Pr',nz,1,nr),1,na,1,1,nkap);
+end;
 Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
@@ -147,13 +164,7 @@ LFLAG    = 0;
 
 %% Capital and Government Tax Loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-rupdate = 0.10;
-iterR   = 1;
-tolR    = 1e-3;
-distR   = 100;
-maxiterR= 100;
 
-while distR>tolR && iterR<maxiterR
 
 
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -179,6 +190,13 @@ FLAGUNCLEARL = 0;
 
 while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
+rupdate = 0.025;
+iterR   = 1;
+tolR    = 1e-2;
+distR   = 100;
+maxiterR= 100;
+
+while distR>tolR && iterR<maxiterR
 %%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
 rng(2)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
@@ -220,6 +238,7 @@ kapgrid(1)=0;
 % maximizes its profit, but the capital choice is not continuous.
 
 kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
+
 X     = profitcalc2(zgrid,agrid,kgrid,r0,w0);
 %--------------------------------------------------------------------------
 businc   = X(:,:,:,1);
@@ -491,6 +510,9 @@ rng(5);
 Pr =rand(nr,length(BIGA(OCC==3)))';
 Pr = Pr./repmat(sum(Pr,2),1,nr);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+qold = 1./(r0+1);
+r0 = 0.04*ones(1,nk);
+for ll = 1:500
 X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,KLflag);
 LD       = X(:,:,1);
 occindex = X(:,:,2); % occindex=1 if chooses to hire
@@ -504,7 +526,25 @@ LabMarket;
 
 KMarket;
 
-%{%}
+q0   = (1-rupdate).*q0 + rupdate.*(qnew);
+
+
+r0 = 1./q0 -1;
+
+distq = max(max(abs(diffK)));
+
+xx(ll) = distq;
+
+if distq<0.0065;
+    break
+end
+end
+
+distR = max(abs(q0-qold)*2./(q0+qold));
+
+
+LFLAG = 1;
+end;
 
 
 
@@ -607,32 +647,7 @@ talent = BIGZ(OCC==3);
 % between the demand and supply of labor
 
 end;
-LFLAG = 1;
 
-
-
-rold = r0;
-
-nempshare = sum(OCC==1)/NN;
-
-taunew = b0*nempshare/(1-nempshare);
-
-disttau = abs(tau-taunew)*2/(tau+taunew);
-
-
-distR = max(max(abs(diffK)))
-
-iterR = iterR+1;
-
-r0                     = rupdate.*rnew + (1-rupdate).*r0;
-
-r0(abs(diffK)<tolR*10) = rupdate*0.1.*rnew(abs(diffK)<tolR*10)...
-    + (1-rupdate*0.1).*r0(abs(diffK)<tolR*10);
-
-r0(abs(diffK)<tolR*100) = rupdate*0.5.*rnew(abs(diffK)<tolR*100)...
-    + (1-rupdate*0.5).*r0(abs(diffK)<tolR*100);
-
-end;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Concentrate only on r0 as it is clearing the market and not rnew!

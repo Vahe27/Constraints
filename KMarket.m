@@ -39,5 +39,5 @@ rnew = KLENT.*(1+r_bar)./KGOT - 1;
 diffK = (KLENT.*(1+r_bar) - KGOT.*(1+r0)).*2./...
     (KLENT.*(1+r_bar) + KGOT.*(1+r0));
 
-rnew(isnan(rnew) & KLENT==0) = r0(isnan(rnew) & KLENT==0);
+rnew(isnan(rnew) & KLENT==0) = max(r_bar,(1-rupdate).*r0(isnan(rnew) & KLENT==0));
 diffK(KLENT==0) = 0;
