@@ -10,7 +10,8 @@ bigeprobs(bigeprobs(:,1)<=0.5,1) = 0;
 
 bigeprobs(:,1) = bigeprobs(:,1)+1;
 
-biga = [randsample([1:nA/2],NN,1)',zeros(NN,TT-1)];
+%biga = [randsample([1:nA/2],NN,1)',zeros(NN,TT-1)];
+biga = [agrid(3)*ones(NN,1),zeros(NN,TT-1)];
 
 occ  = zeros(NN,TT);
 else
@@ -24,7 +25,8 @@ bigeprobs(bigeprobs(:,1)>0.5,1) = 1;
 bigeprobs(bigeprobs(:,1)<=0.5,1) = 0;
 bigeprobs(:,1) = bigeprobs(:,1)+1;
 
-biga = [randsample(agrid(1:end),NN,1)',zeros(NN,TT-1)];
+%biga = [randsample(agrid(1:end),NN,1)',zeros(NN,TT-1)];
+biga = [agrid(3)*ones(NN,1),zeros(NN,TT-1)];
 
 occ = zeros(NN,TT);
 end

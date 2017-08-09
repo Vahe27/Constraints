@@ -64,7 +64,7 @@ TEMPN = FN(BIGZ(INDEX),BIGA(INDEX),bigkap(INDEX));
 TEMPS = FS(BIGZ(INDEX),BIGA(INDEX),bigkap(INDEX));
 
 TEMPOCC = ones(length(INDEX),1);
-TEMPOCC(TEMPW>max(TEMPN(EINDEX==2),TEMPS(EINDEX==2))) = 2;
+TEMPOCC(EINDEX==2) =(TEMPW>max(TEMPN(EINDEX==2),TEMPS(EINDEX==2)))+1;
 TEMPOCC(TEMPS>TEMPN & TEMPOCC~=2) = 3;
 
 OCC(INDEX) = TEMPOCC;
@@ -91,6 +91,7 @@ BIGE(OCC~=2 & bige(:,tt+1)<mu) = 1;
 bige(:,tt+1) = BIGE;
 
 end
+
 
 BIGZ = bigz(:,TT);
 BIGA = biga(:,TT);

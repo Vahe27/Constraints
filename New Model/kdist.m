@@ -13,7 +13,7 @@ global alfa deltta nu gama
 rmax = max(max(r));
 rmin = min(min(r));
 
-PRz  = 0.999;
+PRz  = 0.995;
 maxz = sigz*(1 - PRz)^(-1/etta);
 
 

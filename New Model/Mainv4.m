@@ -22,12 +22,12 @@ global r_bar deltta alfa nu gama Gama xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.937;
+betta    = 0.94;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
 lambda = 0.2;
-mu     = 0.4;
+mu     = 0.3;
 
 % Production Parameters
 deltta   = 0.06;
@@ -37,22 +37,22 @@ gama     = nu - alfa;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 7.5;
+etta     = 7.3;
 sigz     = 1;
 
 PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
 
-ettakap  = 0.05; % Two parameters that will be useful for the disutility from work
-sigkap   = 5;
+ettakap  = 0.1; % Two parameters that will be useful for the disutility from work
+sigkap   = 2;
 
 % The Default Parameters
-mueps    = [0.7 0.2 0.1]; % if neps =1 mueps - probability, sigeps - value in function
-sigeps   = [0 0.7 5];
+mueps    = [0.8 0.15 0.05]; % if neps =1 mueps - probability, sigeps - value in function
+sigeps   = [0 0.9 8];
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
-kmethod  = 0; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.5; % Exemption level
+kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
+xi       = 0.35; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -89,9 +89,9 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8;
-r0       = ones(nr,nk).*0.1; % Now For each signal and amount there is a borrowing rate
-b0       = 0.4;
+w0       = 1.2157;
+r0       = ones(nr,nk).*r_bar; % Now For each signal and amount there is a borrowing rate
+b0       = 0.15;
 tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
@@ -112,7 +112,7 @@ end
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
 NN = 1e5;
-TT = 350;
+TT = 300;
 
 nA   = 500;
 nZ   = 200;
@@ -176,7 +176,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.2;
+wmax     = 1.3;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -187,18 +187,17 @@ Capflag = 0;
 %--------------------------------------------------------------------------
 clear funcdistL
 FLAGUNCLEARL = 0;
+%--------------------------------------------------------------------------
+% The Capital grid: New Addition, each firm chooses the amount that
+% maximizes its profit, but the capital choice is not continuous.
+
+kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
+
+%--------------------------------------------------------------------------
 
 while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
-rupdate = 0.025;
-iterR   = 1;
-tolR    = 1e-2;
-distR   = 100;
-maxiterR= 100;
 
-while distR>tolR && iterR<maxiterR
-%%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
-rng(2)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     
     if iterL>2 
@@ -223,7 +222,25 @@ rng(2)
     w0 = s;
  end;
  %-------------------------------------------------------------------------
- 
+qupdate  = 0.025;
+rupdate  = 0.025;
+iterR    = 1;
+tolR     = 2.5e-2;
+tolq     = 2.5e-2;
+distR    = 150;
+maxiterR = 200;
+tolupr   = 0.015;
+lastresortflag = 0;
+
+if iterL>1
+    if abs(w0 - wold)*2/(w0+wold)>tolupr
+r0       = 0.04*ones(1,nk);
+    end
+end
+
+while distR>tolR && iterR<maxiterR
+%%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
+rng(2)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 kapgrid(1)=0;
@@ -234,10 +251,6 @@ kapgrid(1)=0;
 % Here businc are as in the notes, they include both business profits and
 % income from depositing left-over assets, doesn't include taxes 
 %--------------------------------------------------------------------------
-% The Capital grid: New Addition, each firm chooses the amount that
-% maximizes its profit, but the capital choice is not continuous.
-
-kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
 
 X     = profitcalc2(zgrid,agrid,kgrid,r0,w0);
 %--------------------------------------------------------------------------
@@ -496,7 +509,7 @@ IN    = permute(reshape(IN,na,nz,nkap),[2 1 3]);
 IS    = imaxS.*(Smax>=Smin) + iminS.*(Smax<Smin);
 IS    = permute(reshape(IS,na,nz,nkap),[2 1 3]);
 
-
+%% Stationary Distribution
 %--------------------------------------------------------------------------
 if CONTSTATDIST == 0 
 StatdistVFI;
@@ -505,45 +518,118 @@ StatdistVFIapcont;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-KLflag = 1;
-rng(5);
-Pr =rand(nr,length(BIGA(OCC==3)))';
-Pr = Pr./repmat(sum(Pr,2),1,nr);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Save the current capital price
+
 qold = 1./(r0+1);
-r0 = 0.04*ones(1,nk);
-for ll = 1:500
-X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,KLflag);
+%{%}
+% Initialize the new capital price for calculating the equilibrium price at
+% the given stationary distribution
+X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,1);
+
 LD       = X(:,:,1);
 occindex = X(:,:,2); % occindex=1 if chooses to hire
 KDindex  = X(:,:,3);
 income   = X(:,:,4);
 KD       = X(:,:,5);
+
 clear X
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 LabMarket;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 KMarket;
 
-q0   = (1-rupdate).*q0 + rupdate.*(qnew);
-
-
-r0 = 1./q0 -1;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 distq = max(max(abs(diffK)));
 
-xx(ll) = distq;
-
-if distq<0.0065;
-    break
+if distq>tolq
+q0   = (1-qupdate).*q0 + qupdate.*(qnew);
 end
+r0 = 1./q0 -1;
+
+
+ 
+
+
+distR           = distq;
+checkR(:,iterR) = diffK; 
+checkQ(:,iterR) = qold;
+
+
+iterR         = iterR + 1
+distR
+
+if iterR>=maxiterR-1 && lastresortflag == 0
+    lastresortD = max(checkR(:,1:iterR-1));
+    lastresortI = find(lastresortD == min(lastresortD));
+    q0          = checkQ(:,lastresortI);
+    r0          = 1./q0' - 1;
+    iterR       = maxiterR - 1;
+    lastresortflag = 1;
 end
 
-distR = max(abs(q0-qold)*2./(q0+qold));
+%{
+% r0 = 0.04*ones(1,nk);
+checkq = zeros(20,1);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for ll = 1:20
+    
+X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,1);
+
+LD       = X(:,:,1);
+occindex = X(:,:,2); % occindex=1 if chooses to hire
+KDindex  = X(:,:,3);
+income   = X(:,:,4);
+KD       = X(:,:,5);
+
+clear X
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+LabMarket;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+KMarket;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+q0   = (1-qupdate).*q0 + qupdate.*(qnew);
 
 
-LFLAG = 1;
+r0 = 1./q0 -1;
+%{
+distq = max(max(abs(diffK)));
+
+ checkq(ll) = distq;
+
+if distq < tolq;
+
+    break;
+    
+elseif ll>500 && distq<min(checkq(checkq>0))*1.1
+    
+    break;
+        
+end
+%}
+end
+
+% distTEMP      = abs(q0-qold)*2./(q0+qold);
+
+%distR         = max(distTEMP);
+
+distR           = max(max(abs(diffK)));
+checkR(:,iterR) = distR; 
+
+% q0            = rupdate*q0 + (1-rupdate)*qold;
+% r0            = 1./q0 - 1;
+
+iterR         = iterR + 1
+distR       
+%}
 end;
 
 
@@ -627,26 +713,22 @@ wtol = 100;%abs(funcdistL(iterL-1,2)-funcdistL(iterL-2,2))/funcdistL(iterL-2,2);
 end;
 
 disp('Iter, Labor Distance, wage rate')
-xx=toc;
+checkq=toc;
 disp([iterL [] distL [] w0 ])
 disp('Time')
-disp([xx])
-%{
-x=BIGZ(OCC==3);
-histogram(x(KDEF(:,1)==0))
-hold on
-histogram(x(KDEF(:,1)<0))
+disp([checkq])
 
-rnew = WGHTKD*(1+r_bar)./(WGHTKD - WGHTKDEF) - 1
-
-asset = BIGA(OCC==3);
-talent = BIGZ(OCC==3);
-%}
-
-% Make sure you choose the wage that leads to lowest possible difference
-% between the demand and supply of labor
 
 end;
+
+clear Atilde ATILDE anarray a_array biga bige bigeprobs bigz conss ...
+    EAS ES ES0 ESold EVu EVw FAPN FAPS FAPW FEMP FEVu FEVw FN FNEMP FW ...
+    ilowN ilowS ilowW lmaxN imaxS imaxW iminN iminS iminW IN INDEX ...
+    indU indV IS iupN iupS iupW IW kap_array kap_arrayint kapnarray N ...
+    N0 Nlow Nmax Nmin Nold Nup occ OCCINDEMP occindex OCCINDNEMP Peps_int ...
+    S S0 Slow Smax Smin Sold Sup TEMPN TEMPOCC TEMPS TEMPW TW UsBk Uuk ...
+    Uwk VNT Vu Vu0 Vuold VWT W W0 Wlow Wmax Wmin Wold WORKINDEX Wup X ...
+    z_array z_arrayint znarray
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

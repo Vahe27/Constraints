@@ -14,25 +14,30 @@ probdefault = zeros(size(KD));
 % Calculate the probability of default for each of the borrowers
 
 for ii = 1:neps
- probdefault = (income<epsilon(ii)).*IndBorrow.*P(ii) + probdefault;
+ probdefault = ((income-epsilon(ii))<xi).*IndBorrow.*P(ii) + probdefault;
 end
 
 meanprobdefault = zeros(nk,nr);
 KBOR   = zeros(nk,nr);
 
 % Here I calculate for each borrowed amount what's the average probability
-% of default (suppose
+% of default
 
 for jj = 1:nr
+    
     for ii=1:nk
-   meanprobdefault(ii,jj) = sum(probdefault(KDindex(:,jj)==ii,jj))/sum(KDindex(:,jj)==ii);
-   KBOR(ii,jj)   = sum(KD(KDindex(:,jj)==ii,jj));
+   
+        meanprobdefault(ii,jj) = sum(probdefault(KDindex(:,jj)==ii,jj))/sum(KDindex(:,jj)==ii);
+        KBOR(ii,jj)   = sum(KD(KDindex(:,jj)==ii,jj));
+   
     end
+    
     meanprobdefault(isnan(meanprobdefault(:,jj)),jj) = 0;
-    %[x loc(:,jj)] = sortrows(meanprobdefault(:,jj));
+
 end
 
 KNDEF = KBOR.*(1-meanprobdefault);
+KDEF  = KBOR - KNDEF;
 
 diffK = q0'.*(KBOR).*(1+r_bar) - KNDEF;
 diffK = diffK*2./(q0'.*(KBOR).*(1+r_bar) + KNDEF);
@@ -43,6 +48,10 @@ qnew(1) = 1/(r_bar+1);
 
 qnan    = isnan(qnew);
 nanflag = 0;
+
+% Here in all cases where there is no demand for a given amount of capital,
+% there will be no way to calculate the price, this is why following the
+% methodology of Athreya, Tam and Young (2012)
 
 for jj = 2:nk
     if qnan(jj) == 1 & qnan(jj-1)==0
@@ -57,21 +66,11 @@ for jj = 2:nk
     end
    
     if nanflag  == 1
-        qnew(jjlow:jjhigh) = qhigh;%(qlow+qhigh)/2;
+        qnew(jjlow:jjhigh) = qhigh;          %(qlow+qhigh)/2;
     end   
     
 end
-        
-
-
-%{
-for ii = 2:nk
-    if isnan(qnew(ii))
-    qnew(ii) =min(qnew(ii-1)*1.001,1/(r_bar+1));
-    end
-end
-%}
-
+ 
 %{
 edges = [1:nk+1]-1/2;
 
