@@ -18,7 +18,7 @@ global r_bar deltta alfa nu gama Gama xi varphi zetta THETA
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.94;
+betta    = 0.951;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
@@ -34,7 +34,7 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 7;
+etta     = 6.7;
 sigz     = 1;
 
 PSI      = 0.10; % The probability of changing the talent, then will be randomly drawn from z
@@ -155,8 +155,18 @@ end
 
 X = repmat(reshape(probmtx',1,1,1,neps,nprob),nz,na,nkap);
 probmtx = permute(X,[1 2 4 5 3]);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% For the stat dist: 4 occupations, augment the grid matrices to another
+% dimension which has 4 values, one for each occupation
 
-%Peps_int     = repmat(reshape(P,1,1,1,neps,1),nz,na,nr,1,nkap);
+Zarray = repmat(z_array,1,1,1,1,4);
+Aarray = repmat(a_array,1,1,1,1,4);
+Parray = repmat(prob_array,1,1,1,1,4);
+Karray = repmat(kap_array,1,1,1,1,4);
+Oarray = repmat(reshape([3 4 6 8],1,1,1,1,4),nz,na,nprob,nkap,1);
+
+
+
 %--------------------------------------------------------------------------
 % The Stationary Distribution of Talents
 
@@ -419,9 +429,8 @@ W0  = Wold;
 N0  = Nold;
 S0  = Sold;
 ES0 = ESold;
-BN0 = BNold;
-BB0 = BBold;
-EB0 = EBold;
+EBN0 = EBNold;
+EBB0 = EBBold;
 
 elseif Vflag == 2
     
@@ -623,28 +632,33 @@ iter_v = iter_v + 1;
 
 end;
 
-clear 
-
 if Vflag == 2
-    save('ValFun','S','N','W','Vw','Vu','ES');
+    save('ValFun','S','B','W','VwN','VuN','VwB','VuB','EBB','EBN''ES');
 end;
 
-Vflag = 1;
-Nold  = N;
-Sold  = S;
-Wold  = W;
-Vuold = Vu;
-Vwold = Vw;
-ESold = ES;
+Vflag  = 1;
+VwNold = VwN0;
+VuNold = VuN0;
+VwBold = VwB0;
+VuBold = VuB0;
+Wold   = W0;
+Nold   = N0;
+Sold   = S0;
+ESold  = ES0;
+EBNold  = EBN0;
+EBBold  = EBB0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 IW    = imaxW.*(Wmax>=Wmin) + iminW.*(Wmax<Wmin);
-IW    = permute(reshape(IW,na,nz,nkap),[2 1 3]);
-
-IN    = imaxN.*(Nmax>=Nmin) + iminN.*(Nmax<Nmin);
-IN    = permute(reshape(IN,na,nz,nkap),[2 1 3]);
+IW    = permute(reshape(IW,na,nz,nprob,nkap),[2 1 3 4]);
 
 IS    = imaxS.*(Smax>=Smin) + iminS.*(Smax<Smin);
-IS    = permute(reshape(IS,na,nz,nkap),[2 1 3]);
+IS    = permute(reshape(IS,na,nz,nprob,nkap),[2 1 3 4]);
+
+IB    = imaxB.*(Bmax>=Bmin) + iminB.*(Bmax<Bmin);
+IB    = permute(reshape(IB,na,nz,nprob,nkap),[2 1 3 4]);
+
+clear iminW imaxW iminS imaxS iminB imaxB ilowW iupW ilowS iupS ilowB...
+    iupB Smin Smax Wmin Wmax Bmin Bmax
 
 %% Stationary Distribution
 %--------------------------------------------------------------------------

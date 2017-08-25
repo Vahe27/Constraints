@@ -32,4 +32,10 @@ occ = zeros(NN,TT);
 
 bigprob = shockcont(mueps, sigeps, NN,EPSdist);
 
+
+POSB = rand(NN,1);
+POSB(POSB>0.95) = 4;
+POSB(POSB<=0.95) = 3; % 4 if has access to business, 3 if no access
+
+
 end
