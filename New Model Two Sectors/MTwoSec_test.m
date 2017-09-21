@@ -4,7 +4,7 @@
 % see which sector a given firm belongs to and how much capital it asks
 
 
-clear all
+clearvars -except ii ettablock sigepsblock testetta testsigeps
 Vflag = 0; % 2 loads the Vfuns from other simulations as starting values, 
 % 1 doesn't make sense in here at the code will give an error, 0 uses zeros
 % as initial values for the Vfun iteration.
@@ -34,7 +34,7 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 8.5;
+etta     = testetta;
 sigz     = 1;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
@@ -48,14 +48,14 @@ THETA = 7.5;
 
 % The Default Parameters
 mueps    = 1;
-sigeps   = 7;
+sigeps   = testsigeps;
 zetta    = [0.5 0.5]; % The likelihood that conditional on shock realizing, it will be low
 epsilon  = [0 0.5 5]; 
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.25; % Exemption level
+xi       = 0.30; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -92,9 +92,9 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8444;
+w0       = 0.8;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.15;
+b0       = 0.01;
 tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
@@ -189,7 +189,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.1;
+wmax     = 0.9;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -894,6 +894,9 @@ disp([iterL [] distL [] w0 ])
 disp('Time')
 disp([checkq])
 
+if checkq > 22000
+    distL = 0;
+end
 
 end;
 
@@ -911,7 +914,7 @@ clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     probdefaultB probarrayintB POSB OCCS occindexS occindexB Nold MAXNES...
     IS IW INESWB indV indU INDEX ESold EAS dummy Bup Blow bigeprobs...
     B B0 AN zarrayintS occ FABB FABN FAPN FAPS FAPW FB FBB FBN FEVuB...
-    FEVuN FEVwB FEVwN FFIN FN FS FW biga bige bigz
+    FEVuN FEVwB FEVwN FFIN FN FS FW 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

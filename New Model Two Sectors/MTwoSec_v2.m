@@ -68,7 +68,7 @@ ne      = 3; % The number of occupations
 nprob   = 5;
 neps    = 3;
 nr      = 2; % Number of interest rates a self-emp can face
-nk      = 400; % The number of capital grid
+nk      = 300; % The number of capital grid
 
 
 
@@ -92,9 +92,9 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8444;
+w0       = 0.80;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.15;
+b0       = 0.01;
 tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
@@ -194,68 +194,29 @@ mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
 tolaux   = 1e-5;
+distR    = 100;
+tolR     = 0.02;
+iterR    = 1;
+maxiterR = 1000;
+wupdate  = 0.001;
+qupdate  = 0.025;
+tolq     = 0.02;
 % Capflag = 0 means that profits will be calcualted in profitcalc and not
 % the capital demand
 Capflag = 0;
 %--------------------------------------------------------------------------
 clear funcdistL
-FLAGUNCLEARL = 0;
 %--------------------------------------------------------------------------
 % The Capital grid: New Addition, each firm chooses the amount that
 % maximizes its profit, but the capital choice is not continuous.
 
 kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
-
 %--------------------------------------------------------------------------
 
-while distL>tolL && iterL<maxiterL && wtol > wtolmax
+while (distR>tolR || abs(distL)>tolL) && iterR<maxiterR  
+
+
     
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-    
-    if iterL>2 
-     
-     if fa~=fc && fb~=fc
-        
-        s = a*fb*fc/((fa-fb)*(fa-fc)) + b*fa*fc/((fb-fa)*(fb-fc))...
-            +c*fa*fb/((fc-fa)*(fc-fb));
-    else
-        s = b - fb*(b-a)/(fb-fa);
-    end;
-    
-    if (s>max((3*a+b)/4,b) || s<min((3*a+b)/4,b)) || ...
-   (mflagL==1 && abs(s-b)>=abs(b-c)/2) || (mflagL==0 && abs(s-b)>=abs(c-d)/2)...
-   || (mflagL==1 && abs(b-c)<tolaux) || (mflagL==0 && abs(c-d)<tolaux)
-        
-        s = (a+b)/2;
-        mflagL=1;
-    else
-        mflagL=0;
-    end;
-    w0 = s;
- end;
- %-------------------------------------------------------------------------
-%{%}
-qupdate  = 0.025;
-rupdate  = 0.025;
-iterR    = 1;
-tolR     = 2.5e-2;
-tolq     = 2.5e-2;
-distR    = 150;
-maxiterR = 150;
-tolupr   = 0.015;
-lastresortflag = 0;
-
-if iterL>1
-    if abs(w0 - wold)*2/(w0+wold)>tolupr
-r0       = 0.04*ones(2,nk);
-    end
-end
-
-% r0 = 0.04*ones(2,nk);
-
-while distR>tolR && iterR<maxiterR
-
 %%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
 rng(2)
 
@@ -717,103 +678,58 @@ if iterR>=maxiterR-1 && lastresortflag == 0
     iterR       = maxiterR - 1;
     lastresortflag = 1;
 end
+
+funcdistL(iterR,:) = [(LS-LD)/((LD+LS)/2) w0];
+
+distL = (LS-LD)/(LD+LS)*2;
+
+if abs(distL)>0.1;
+    if distL >0
+        w0 = w0*(1-wupdate);
+    else
+        w0 = w0*(1+wupdate);
+    end
+elseif abs(distL)>0.05 & abs(distL)<0.05
+    if distL>0
+        w0 = w0*(1-wupdate/2);
+    else
+        w0 = w0*(1+wupdate/2);
+    end
+elseif abs(distL)<0.05 & abs(distL)>tolL
+    if distL>0
+        w0 = w0*(1-wupdate/8);
+    else
+        w0 = w0*(1+wupdate/8);
+    end
+elseif abs(distL)<tolL
+    w0;   
 end
 
+disp('Iter, Cap Distance, ')
+disp([iterR [] distR [] ])
+disp('Iter, Labor Distance, wage rate')
+checkq=toc;
+disp([iterR [] distL [] w0 ])
+disp('Time')
+disp([checkq])
+
+
+if iterR>300
+    qupdate = 0.005;
+end
+if iterR>500
+    tolR = 0.04;
+end
+
+ stugL(iterR,:) = [iterR LS LD w0];
+
+
+end
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %{
-
-if distq>tolq
-q0   = (1-qupdate).*q0 + qupdate.*(qnew);
-end
-r0 = 1./q0 -1;
-
-
- 
-
-
-distR           = distq;
-checkR(:,iterR) = diffK; 
-checkQ(:,iterR) = qold;
-
-
-iterR         = iterR + 1
-distR
-
-if iterR>=maxiterR-1 && lastresortflag == 0
-    lastresortD = max(checkR(:,1:iterR-1));
-    lastresortI = find(lastresortD == min(lastresortD));
-    q0          = checkQ(:,lastresortI);
-    r0          = 1./q0' - 1;
-    iterR       = maxiterR - 1;
-    lastresortflag = 1;
-end
-
-%{
-% r0 = 0.04*ones(1,nk);
-checkq = zeros(20,1);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-for ll = 1:20
-    
-X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,1);
-
-LD       = X(:,:,1);
-occindex = X(:,:,2); % occindex=1 if chooses to hire
-KDindex  = X(:,:,3);
-income   = X(:,:,4);
-KD       = X(:,:,5);
-
-clear X
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-LabMarket;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-KMarket;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-q0   = (1-qupdate).*q0 + qupdate.*(qnew);
-
-
-r0 = 1./q0 -1;
-%{
-distq = max(max(abs(diffK)));
-
- checkq(ll) = distq;
-
-if distq < tolq;
-
-    break;
-    
-elseif ll>500 && distq<min(checkq(checkq>0))*1.1
-    
-    break;
-        
-end
-%}
-end
-
-% distTEMP      = abs(q0-qold)*2./(q0+qold);
-
-%distR         = max(distTEMP);
-
-distR           = max(max(abs(diffK)));
-checkR(:,iterR) = distR; 
-
-% q0            = rupdate*q0 + (1-rupdate)*qold;
-% r0            = 1./q0 - 1;
-
-iterR         = iterR + 1
-distR       
-%}
-end;
-
-%}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
-
 if iterL==2 && sign(funcdistL(iterL,1)) == sign(funcdistL(iterL-1,1))
     if  sign(funcdistL(iterL,1))== -1;
         wmax  = wmax*1.05;
@@ -895,7 +811,7 @@ disp('Time')
 disp([checkq])
 
 
-end;
+
 
 clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     kaparrayintS zarrayintB kaparrayintB znarray anarray kapnarray...
@@ -920,3 +836,4 @@ clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
 % FLAGUNCLEARL is a flag that if equal to 1 indicates that the labor market
 % hasn't cleared, so then I find the wage that created lowest dist(LD,LS)
 % and run the model under that wage
+%}

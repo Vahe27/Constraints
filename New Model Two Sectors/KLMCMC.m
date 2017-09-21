@@ -21,10 +21,12 @@ global r_bar deltta alfa nu gama Gama
 % rate r_bar (1) and borrowing rate r (2). Three types, k(rbar)<a save
 % (a-k), k(r)>a borrow (k-a) and k(rbar)>=a but k(bar)<=a invest a and
 % borrow 0
-na = length(a);
-nz = length(z);
-nr = size(r,1);
-nk = length(k);
+na      = length(a);
+nz      = length(z);
+nr      = size(r,1);
+nk      = length(k);
+flagown = 0;
+flagemp = 0;
 
 piown = zeros(nz,nr);
 piemp = zeros(nz,nr);
@@ -50,8 +52,13 @@ nborrow = sum(IndBown == 1);
 borrowera = repmat(a(IndBown),1,nk);
 borrowerz = repmat(z(IndBown),1,nk);
 
-for ii = 1:nr
-invest    = borrowera + repmat(k./(1+r(ii,:)),nborrow,1);
+if size(borrowera,1) == 0
+    flagown = 1;
+end
+
+if flagown == 0
+
+invest    = borrowera + repmat(k./(1+r(1,:)),nborrow,1);
     
     
 paymentk  = k;
@@ -64,20 +71,26 @@ pimatrixown = Gama*borrowerz.* invest.^alfa + (1-deltta) * invest ...
 
 [pioptown(IndBown) Ikown] = max(pimatrixown,[],2);
 
+else
+
+Ikown = [];
+
+end
+
 pioptown(IndBown==0) = Gama*z(IndBown==0) .* ...
     kownacc(IndBown==0).^alfa + (1-deltta)*kownacc(IndBown==0)...
     + Sown(IndBown==0).*(1+r_bar);
 
 
-piown(:,ii) = pioptown;
+piown(:,1) = pioptown;
 
 bork = zeros(nz,1);
 bork(IndBown) = k(Ikown);
 
-borrowedkown(:,ii) = bork;
-Bkindown(IndBown,ii)     = Ikown;
+borrowedkown(:,1) = bork;
+Bkindown(IndBown,1)     = Ikown;
 
-end
+
 
 %--------------------------------------------------------------------------
 % Employers
@@ -99,9 +112,12 @@ nborrow = sum(IndBemp);
 borrowera = repmat(a(IndBemp),1,nk);
 borrowerz = repmat(z(IndBemp),1,nk);
 
-for ii = 1:nr
+if size(borrowera,1) == 0
+    flagemp = 1;
+end
 
-invest    = borrowera + repmat(k./(1+r(ii,:)),nborrow,1);
+if flagemp == 0
+invest    = borrowera + repmat(k./(1+r(1,:)),nborrow,1);
     
 
 paymentk = k;
@@ -115,7 +131,8 @@ pimatrixemp = borrowerz.*(invest).^alfa .* L.^gama + (1-deltta).*invest...
 
 [pioptemp(IndBemp) Ikemp] = max(pimatrixemp,[],2);
 
-LabD(IndBemp,ii) = L([1:nborrow]'+(Ikemp - 1)*nborrow);
+LabD(IndBemp,1) = L([1:nborrow]'+(Ikemp - 1)*nborrow);
+
 
 %% Check from here once again! tomorrow
 
@@ -125,25 +142,29 @@ LabD(IndBemp,ii) = L([1:nborrow]'+(Ikemp - 1)*nborrow);
 % highest capital. It can be shown that q = 1/(1+r) so it is between (0,1)
 
 khigh = borrowerz(Ikemp==nk) .^ (1/(1 - nu)) * (alfa/(deltta...
-    + r(ii,end)))^((1 - gama)/(1 - nu)) * (gama/w) ^ (gama/(1-nu));
+    + r(1,end)))^((1 - gama)/(1 - nu)) * (gama/w) ^ (gama/(1-nu));
 
 atemp = borrowera(:,1);
 ztemp = borrowerz(:,1);
 
-Lhigh = gama/alfa * khigh * (r(ii,end)+deltta)/w; % equivalent to the other calculation!
+Lhigh = gama/alfa * khigh * (r(1,end)+deltta)/w; % equivalent to the other calculation!
 
 pihigh = ztemp(Ikemp==nk).*khigh.^alfa.*Lhigh.^gama + (1-deltta).*khigh ...
-    - w*Lhigh - (1+r(ii,end)).*(khigh - atemp(Ikemp==nk));
+    - w*Lhigh - (1+r(1,end)).*(khigh - atemp(Ikemp==nk));
 
 X1 = pioptemp(IndBemp);
-X2 = LabD(IndBemp,ii);
+X2 = LabD(IndBemp,1);
 
 X1(Ikemp==nk) = pihigh;
 X2(Ikemp==nk) = Lhigh;
 
 pioptemp(IndBemp) = X1;
-LabD(IndBemp,ii)  = X2;
+LabD(IndBemp,1)  = X2;
 
+else
+    Ikemp = [];
+    khigh = []
+end
 
 Lsave = (gama/w)^(1/(1-gama)) * z.^(1/(1-gama)) .* (kemp.^...
     (alfa/(1-gama))); 
@@ -153,20 +174,20 @@ pioptemp(IndBemp==0) = z(IndBemp==0).*kemp(IndBemp==0)...
     kemp(IndBemp==0) - w .*Lsave(IndBemp==0)...
     + Semp(IndBemp==0).*(1+r_bar);
 
-piemp(:,ii)   = pioptemp;
+piemp(:,1)   = pioptemp;
 
 bork          = zeros(nz,1);
 bork(IndBemp) = k(Ikemp);
 X3            = bork(IndBemp);
-X3(Ikemp==nk) = khigh.*(1+r(ii,end));
+X3(Ikemp==nk) = khigh.*(1+r(1,end));
 bork(IndBemp) = X3;
 
-borrowedkemp(:,ii)   = bork;
-Bkindemp(IndBemp,ii) = Ikemp;
+borrowedkemp(:,1)   = bork;
+Bkindemp(IndBemp,1) = Ikemp;
 
-LabD(IndBemp==0,ii)  = Lsave(IndBemp==0);
+LabD(IndBemp==0,1)  = Lsave(IndBemp==0);
 
-end
+
 %--------------------------------------------------------------------------
 occindex = piemp>piown; %occindex 1 if hires
 

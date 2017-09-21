@@ -72,10 +72,6 @@ FN    = griddedInterpolant(z_array,a_array,prob_array,kap_array,N);
 FS    = griddedInterpolant(z_array,a_array,prob_array,kap_array,ES);
 FBN   = griddedInterpolant(z_array,a_array,prob_array,kap_array,EBN);
 FBB   = griddedInterpolant(z_array,a_array,prob_array,kap_array,EBB);
-%FEMPN  = griddedInterpolant(z_array,a_array,prob_array,kap_array,OCCEMPNB);
-%FNEMN  = griddedInterpolant(z_array,a_array,prob_array,kap_array,OCCNEMNB);
-%FEMPB  = griddedInterpolant(z_array,a_array,prob_array,kap_array,OCCEMPB);
-%FNEMB  = griddedInterpolant(z_array,a_array,prob_array,kap_array,OCCNEMB);
 FAPW  = griddedInterpolant(z_array,a_array,prob_array,kap_array,apgrid(IW));
 FAPN  = griddedInterpolant(z_array,a_array,prob_array,kap_array,AN);
 FAPS  = griddedInterpolant(z_array,a_array,prob_array,kap_array,EAS);
@@ -97,7 +93,7 @@ FFIN  = griddedInterpolant(Zarray,Aarray,Parray,Karray,Oarray,VALMAT);
 %}
 
 TOTOCC = [POSB.*bige(:,1) zeros(NN,TT-1)];
-
+CUROCC = zeros(NN,TT);
 
 for tt = 1:TT
 
@@ -188,13 +184,14 @@ bige(:,tt+1) = BIGE;
 BIND = (OCC==4)+3;
 
 TOTOCC(:,tt+1) = BIND.*BIGE;
-
+CUROCC(:,tt) = OCC;
 end
-
 
 BIGZ = bigz(:,TT);
 BIGA = biga(:,TT);
 BIGE = bige(:,TT);
+OCCS = OCC(OCC==4 | OCC==3);
+bigp = bigprob(OCC==4 | OCC==3);
 
 
 

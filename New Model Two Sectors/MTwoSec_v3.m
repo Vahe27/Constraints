@@ -34,7 +34,7 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 8.5;
+etta     = 7.6;
 sigz     = 1;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
@@ -68,7 +68,7 @@ ne      = 3; % The number of occupations
 nprob   = 5;
 neps    = 3;
 nr      = 2; % Number of interest rates a self-emp can face
-nk      = 400; % The number of capital grid
+nk      = 200; % The number of capital grid
 
 
 
@@ -94,7 +94,7 @@ clear X
 % Initial Values of the variables
 w0       = 0.8444;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.15;
+b0       = 0.01;
 tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
@@ -246,13 +246,13 @@ maxiterR = 150;
 tolupr   = 0.015;
 lastresortflag = 0;
 
-if iterL>1
-    if abs(w0 - wold)*2/(w0+wold)>tolupr
-r0       = 0.04*ones(2,nk);
-    end
-end
+% if iterL>1
+%     if abs(w0 - wold)*2/(w0+wold)>tolupr
+% r0       = 0.04*ones(2,nk);
+%     end
+% end
 
-% r0 = 0.04*ones(2,nk);
+ r0 = 0.04*ones(2,nk);
 
 while distR>tolR && iterR<maxiterR
 
@@ -661,7 +661,10 @@ end
 % Save the current capital price
 
 qold = 1./(r0+1);
+rold = r0;
 %{%}
+
+for ll = 1:800
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
 X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
@@ -701,14 +704,31 @@ end
 
 r0 = 1./q0 -1;
 
-distR           = distq;
-checkQ(:,:,iterR) = qold;
-checkR(:,:,iterR) = diffK;
+%distR           = distq;
+checkQ(:,:,ll) = qold;
+checkR(:,ll) = distq;
+
+
+if distq<tolR
+    break
+end
+
+
+if ll>=799 && lastresortflag == 0
+    lastresortD = checkR(:,1:ll);
+    lastresortI = find(lastresortD == min(lastresortD));
+    q0          = checkQ(:,:,lastresortI)';
+    r0          = 1./q0' - 1;
+    ll = 800;
+end
+
+end
 
 iterR         = iterR + 1
-distR
 
 
+distR =max(max(abs(r0 - rold)*2/(rold+r0)));
+%{
 if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortD = max(max(checkR(:,:,1:iterR-1)));
     lastresortI = find(lastresortD == min(lastresortD));
@@ -717,99 +737,8 @@ if iterR>=maxiterR-1 && lastresortflag == 0
     iterR       = maxiterR - 1;
     lastresortflag = 1;
 end
-end
-
-%{
-
-if distq>tolq
-q0   = (1-qupdate).*q0 + qupdate.*(qnew);
-end
-r0 = 1./q0 -1;
-
-
- 
-
-
-distR           = distq;
-checkR(:,iterR) = diffK; 
-checkQ(:,iterR) = qold;
-
-
-iterR         = iterR + 1
-distR
-
-if iterR>=maxiterR-1 && lastresortflag == 0
-    lastresortD = max(checkR(:,1:iterR-1));
-    lastresortI = find(lastresortD == min(lastresortD));
-    q0          = checkQ(:,lastresortI);
-    r0          = 1./q0' - 1;
-    iterR       = maxiterR - 1;
-    lastresortflag = 1;
-end
-
-%{
-% r0 = 0.04*ones(1,nk);
-checkq = zeros(20,1);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-for ll = 1:20
-    
-X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,1);
-
-LD       = X(:,:,1);
-occindex = X(:,:,2); % occindex=1 if chooses to hire
-KDindex  = X(:,:,3);
-income   = X(:,:,4);
-KD       = X(:,:,5);
-
-clear X
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-LabMarket;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-KMarket;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-q0   = (1-qupdate).*q0 + qupdate.*(qnew);
-
-
-r0 = 1./q0 -1;
-%{
-distq = max(max(abs(diffK)));
-
- checkq(ll) = distq;
-
-if distq < tolq;
-
-    break;
-    
-elseif ll>500 && distq<min(checkq(checkq>0))*1.1
-    
-    break;
-        
-end
 %}
 end
-
-% distTEMP      = abs(q0-qold)*2./(q0+qold);
-
-%distR         = max(distTEMP);
-
-distR           = max(max(abs(diffK)));
-checkR(:,iterR) = distR; 
-
-% q0            = rupdate*q0 + (1-rupdate)*qold;
-% r0            = 1./q0 - 1;
-
-iterR         = iterR + 1
-distR       
-%}
-end;
-
-%}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
