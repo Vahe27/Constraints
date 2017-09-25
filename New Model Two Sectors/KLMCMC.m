@@ -35,6 +35,10 @@ borrowedkemp = zeros(nz,nr);
 Bkindown     = zeros(nz,nr);
 Bkindemp     = zeros(nz,nr);
 LabD = nan(nz,nr);
+%%%%%%%%%%%%%%%%%%%%%%%% TEMP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+pioptown = zeros(nz,1);
+pioptemp = zeros(nz,1);
+y        = zeros(nz,5);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% FOR CAPITAL MARKET %%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Eq 2 in notes
@@ -195,9 +199,9 @@ LabD = LabD.*occindex;
 KD = Bkindemp.*occindex + Bkindown.*(1-occindex);
 BorrowedK = borrowedkemp.*occindex + borrowedkown.*(1-occindex);
 
-y(:,:,1) = LabD;
-y(:,:,2) = occindex;
-y(:,:,3) = KD;
-y(:,:,4) = piemp.*(occindex) + piown.*(1-occindex);
-y(:,:,5) = BorrowedK;
+y(:,1) = LabD;
+y(:,2) = occindex;
+y(:,3) = KD;
+y(:,4) = piemp.*(occindex) + piown.*(1-occindex);
+y(:,5) = BorrowedK;
 end

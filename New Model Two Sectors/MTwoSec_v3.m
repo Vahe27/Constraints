@@ -34,7 +34,7 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 7.6;
+etta     = 8;
 sigz     = 1;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
@@ -55,7 +55,7 @@ epsilon  = [0 0.5 5];
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.25; % Exemption level
+xi       = 0.30; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -92,7 +92,7 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8444;
+w0       = 0.8;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
 b0       = 0.01;
 tau      =  [0.001];
@@ -651,39 +651,35 @@ clear iminW imaxW iminS imaxS iminB imaxB ilowW iupW ilowS iupS ilowB...
 
 %% Stationary Distribution
 %--------------------------------------------------------------------------
-if CONTSTATDIST == 0 
-StatdistVFI;
-else
-StatdistVFIapcont;
-end
-
+StatDist;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Save the current capital price
 
 qold = 1./(r0+1);
 rold = r0;
 %{%}
-
-for ll = 1:800
+lastresortflag = 0;
+ll=1;
+while ll<1000
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
 X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
 
-LDS       = X(:,:,1);
-occindexS = X(:,:,2); % occindex=1 if chooses to hire
-KDindexS  = X(:,:,3);
-incomeS   = X(:,:,4);
-KDS       = X(:,:,5);
+LDS       = X(:,1);
+occindexS = X(:,2); % occindex=1 if chooses to hire
+KDindexS  = X(:,3);
+incomeS   = X(:,4);
+KDS       = X(:,5);
 
 clear X
 
 X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
 
-LDB       = X(:,:,1);
-occindexB = X(:,:,2); % occindex=1 if chooses to hire
-KDindexB  = X(:,:,3);
-incomeB   = X(:,:,4);
-KDB       = X(:,:,5);
+LDB       = X(:,1);
+occindexB = X(:,2); % occindex=1 if chooses to hire
+KDindexB  = X(:,3);
+incomeB   = X(:,4);
+KDB       = X(:,5);
 
 clear X
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -697,6 +693,8 @@ KMarket;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %{%}
 distq = max(max(abs(diffK)));
+checkQ(:,:,ll) = q0;
+
 
 if distq>tolq
 q0   = (1-qupdate).*q0 + qupdate.*(qnew);
@@ -705,22 +703,24 @@ end
 r0 = 1./q0 -1;
 
 %distR           = distq;
-checkQ(:,:,ll) = qold;
 checkR(:,ll) = distq;
 
 
-if distq<tolR
+if distq<tolq
     break
 end
 
 
-if ll>=799 && lastresortflag == 0
+if ll>=999 && lastresortflag == 0
     lastresortD = checkR(:,1:ll);
     lastresortI = find(lastresortD == min(lastresortD));
-    q0          = checkQ(:,:,lastresortI)';
-    r0          = 1./q0' - 1;
-    ll = 800;
+    q0          = checkQ(:,:,lastresortI);
+    r0          = 1./q0 - 1;
+    lastresortflag = 1;
+    ll=ll-1;
 end
+
+ll = ll+1;
 
 end
 
@@ -825,6 +825,8 @@ disp([checkq])
 
 
 end;
+
+avgr = sum(KBOR(:,1)./sum(KBOR(:,1)).*r0(1,:)');
 
 clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     kaparrayintS zarrayintB kaparrayintB znarray anarray kapnarray...

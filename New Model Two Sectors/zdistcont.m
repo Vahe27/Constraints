@@ -9,6 +9,7 @@ function y = zdistcont(mu, etta,PSI,NN,TT,ZDist)
 % in comparison to zstatdist, this one draws from the continuous
 % distribution of z s
 
+upperzprob = 0.9998;
 
 rng(1)
 
@@ -32,7 +33,7 @@ for ii = 2:TT
 end
     
 end    
-    
+box(box>upperzprob) = upperzprob;
 y  = mu * (1 - box).^(-1/etta);
 
 end
