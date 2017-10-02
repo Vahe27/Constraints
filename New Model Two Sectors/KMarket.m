@@ -17,8 +17,7 @@ IndBorrowS   = (KDS~=0);
 IndBorrowB   = (KDB~=0);
 probdefaultS = zeros(size(KDS));
 probdefaultB = zeros(size(KDB));
-BIGPROB      = [1-bigp repmat(bigp,1,neps-1).*repmat(zetta,...
-               length(bigp),1)];
+
 
            
 % Calculate the probability of default for each of the borrowers

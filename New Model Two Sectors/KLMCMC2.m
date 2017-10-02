@@ -42,11 +42,8 @@ y        = zeros(nz,5);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% FOR CAPITAL MARKET %%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Eq 2 in notes
-
-% kownacc = (alfa/(r_bar + deltta))^(1/(1-alfa)) * Gama^(1/(1-alfa))...
-%    * z.^ (1/(1-alfa));
-kownacc = (alfa/(r_bar + deltta)* Gama* z).^ (1/(1-alfa));
-
+kownacc = (alfa/(r_bar + deltta))^(1/(1-alfa)) * Gama^(1/(1-alfa))...
+    * z.^ (1/(1-alfa));
 
 IndBown = kownacc>a;
 Sown     = a - kownacc;
@@ -71,7 +68,7 @@ invest    = borrowera + repmat(k./(1+r(1,:)),nborrow,1);
 paymentk  = k;
 paymentk  = repmat(paymentk,nborrow,1);
 
-
+x = PIown(borrowerz,invest,paymentk,alfa,deltta,Gama,nborrow);
 
 pimatrixown = Gama*borrowerz.* invest.^alfa + (1-deltta) * invest ...
     - paymentk;
@@ -130,22 +127,17 @@ invest    = borrowera + repmat(k./(1+r(1,:)),nborrow,1);
 paymentk = k;
 paymentk = repmat(paymentk,nborrow,1);
 
-pimatrixemp = borrowerz.^(1/(1-gama)).*invest.^(alfa/(1-gama))*...
-    ((gama/w)^(gama/(1-gama)) - w*(gama/w)^(1/(1-gama))) + (1-deltta)...
-    *invest - paymentk;
+L = (gama/w)^(1/(1-gama)) * borrowerz.^(1/(1-gama)) .* (invest.^...
+    (alfa/(1-gama))); 
 
-
-% L = (gama/w)^(1/(1-gama)) * borrowerz.^(1/(1-gama)) .* (invest.^...
-%    (alfa/(1-gama))); 
-
-% pimatrixemp = borrowerz.*(invest).^alfa .* L.^gama + (1-deltta).*invest...
-%    - paymentk - w*L;
-% LabD(IndBemp,1) = L([1:nborrow]'+(Ikemp - 1)*nborrow);
+pimatrixemp = borrowerz.*(invest).^alfa .* L.^gama + (1-deltta).*invest...
+    - paymentk - w*L;
 
 [pioptemp(IndBemp) Ikemp] = max(pimatrixemp,[],2);
 
-LabD(IndBemp,1) = (gama/w * z(IndBemp)).^(1/(1-gama)) .*...
-    (invest([1:nborrow]'+(Ikemp - 1)*nborrow).^(alfa/(1-gama)));
+LabD(IndBemp,1) = L([1:nborrow]'+(Ikemp - 1)*nborrow);
+
+
 %% Check from here once again! tomorrow
 
 % Here I don't change the notations like I did in the previous cases, where
@@ -178,7 +170,7 @@ else
     khigh = []
 end
 
-Lsave = (gama/w * z).^(1/(1-gama)) .* (kemp.^...
+Lsave = (gama/w)^(1/(1-gama)) * z.^(1/(1-gama)) .* (kemp.^...
     (alfa/(1-gama))); 
 
 pioptemp(IndBemp==0) = z(IndBemp==0).*kemp(IndBemp==0)...

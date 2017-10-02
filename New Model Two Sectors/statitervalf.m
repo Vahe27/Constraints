@@ -1,7 +1,14 @@
-function y = statiter(z_array,a_array,prob_array,kap_array,W,N,ES,EBN,...
+function y = statitervalf(z_array,a_array,prob_array,kap_array,W,N,ES,EBN,...
     EBB,apgridIW,AN,EAS,EABN,EABB,OCCNEMNB,OCCNEMB,OCCEMPNB,OCCEMPB,...
-    nz,na,nprob,nkap,Zarray,Aarray,Parray,Karray,Oarray,POSB,NN,TT,...
+    nz,na,nprob,nkap,Zarray,Aarray,Parray,Karray,Oarray,BIND,NN,TT,...
     bigz,biga,bige,bigprob,bigkap,amin,lambda,mu);
+
+%{
+    The Same as the statiter, but with value function interpolation and not
+    the occupational interpolation
+%}
+
+
 
 FW    = griddedInterpolant(z_array,a_array,prob_array,kap_array,W);
 FN    = griddedInterpolant(z_array,a_array,prob_array,kap_array,N);
@@ -15,10 +22,6 @@ FABN  = griddedInterpolant(z_array,a_array,prob_array,kap_array,EABN);
 FABB  = griddedInterpolant(z_array,a_array,prob_array,kap_array,EABB);
 
 
-VALMAT = reshape([OCCNEMNB OCCNEMB OCCEMPNB OCCEMPB],nz,na,4,nprob,nkap);
-VALMAT = permute(VALMAT,[1 2 4 5 3]);
-
-FFIN  = griddedInterpolant(Zarray,Aarray,Parray,Karray,Oarray,VALMAT);
 % Each value indicates whether the individual has access to employment and
 % /or business or no i.e.
 %{
@@ -28,62 +31,37 @@ FFIN  = griddedInterpolant(Zarray,Aarray,Parray,Karray,Oarray,VALMAT);
 2x4 = 8 access to employment, access to business
 %}
 
-TOTOCC = [POSB.*bige(:,1) zeros(NN,TT-1)];
+TOTOCC = [BIND.*bige(:,1) zeros(NN,TT-1)];
 CUROCC = zeros(NN,TT);
 y      = zeros(NN,5);
-
 
 for tt = 1:TT
 
 BIGZ = bigz(:,tt);
 BIGA = biga(:,tt);
 BIGE = bige(:,tt);
-
-OCC  = ones(NN,1);
-
-OCC  = FFIN(BIGZ,BIGA,bigprob,bigkap,TOTOCC(:,tt));
-
-% Locations where occupational choice unsure, between either 1,2 or 2,3 or
-% 1,3. Hard to distinguish, so work with value functions
-INDEX  = find(floor(OCC) ~= OCC);
-TINDEX = TOTOCC(INDEX,tt);
-NIND   = size(INDEX,1);
-dummy  = ones(NIND,1)*-1e4;
-
-TEMPN  = FN(BIGZ(INDEX),BIGA(INDEX),bigprob(INDEX),bigkap(INDEX));
-TEMPS  = FS(BIGZ(INDEX),BIGA(INDEX),bigprob(INDEX),bigkap(INDEX));
-TEMPNB = FBN(BIGZ(INDEX),BIGA(INDEX),bigprob(INDEX),bigkap(INDEX));
-
-TEMPBB4 = FBB(BIGZ(TINDEX==4),BIGA(TINDEX==4),bigprob(TINDEX==4),...
-    bigkap(TINDEX==4));
-
-TEMPBB8 = FBB(BIGZ(TINDEX==8),BIGA(TINDEX==8),bigprob(TINDEX==8),...
-    bigkap(TINDEX==8));
-
-TEMPW6  = FW(BIGZ(TINDEX==6),BIGA(TINDEX==6),bigprob(TINDEX==6),...
-    bigkap(TINDEX==6));
-
-TEMPW8  = FW(BIGZ(TINDEX==8),BIGA(TINDEX==8),bigprob(TINDEX==8),...
-    bigkap(TINDEX==8));
+BE   = find(BIGE==2);
+BB   = find(BIND==4);
+INDW = zeros(length(BE),1);
+INDB = zeros(length(BB),1);
 
 
-INESWB = zeros(NIND,1);
+OCC = ones(NN,1);
+VN  = FN(BIGZ,BIGA,bigprob,bigkap);
+VS  = FS(BIGZ,BIGA,bigprob,bigkap);
+VBN = FBN(BIGZ,BIGA,bigprob,bigkap);
+VW  = FW(BIGZ(BE),BIGA(BE),bigprob(BE),bigkap(BE));
 
+VBB = FBB(BIGZ(BB),BIGA(BB),bigprob(BB),bigkap(BB));
 
-[~, INESWB(TINDEX==3)] = max([TEMPN(TINDEX==3) dummy(TINDEX==3)...
-    TEMPS(TINDEX==3) TEMPNB(TINDEX==3)],[],2);
+[MAXOCC1 OCC] = max([VN VS VBN],[],2);
+OCC(OCC>1) = OCC(OCC>1)+1;
 
-[~, INESWB(TINDEX==4)] = max([TEMPN(TINDEX==4) dummy(TINDEX==4)...
-  TEMPS(TINDEX==4) TEMPBB4],[],2);
+[MAXOCC1(BE) INDW] = max([VW MAXOCC1(BE)],[],2);
+OCC(BE(INDW==1)) = 2;
 
-[~, INESWB(TINDEX==6)] = max([TEMPN(TINDEX==6) TEMPW6 TEMPS(TINDEX==6)...
-    TEMPNB(TINDEX==6)],[],2);
-
-[~, INESWB(TINDEX==8)] = max([TEMPN(TINDEX==8) TEMPW8 TEMPS(TINDEX==8)...
-     TEMPBB8],[],2);
-
-
-OCC(INDEX) = INESWB;
+[MAXOCC1(BB) INDB] = max([VBB MAXOCC1(BB)],[],2);
+OCC(BB(INDB==1)) = 4;
 
 BIGAP      = zeros(NN,1);
 

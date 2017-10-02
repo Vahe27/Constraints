@@ -66,19 +66,18 @@ OCCNEMB(ES>max(N,EBB))         = 3;
 
 bige  = [bigeprobs zeros(NN,1)];
 
-X = statiter(z_array,a_array,prob_array,kap_array,W,N,ES,EBN,...
+X = statitervalf(z_array,a_array,prob_array,kap_array,W,N,ES,EBN,...
     EBB,apgrid(IW),AN,EAS,EABN,EABB,OCCNEMNB,OCCNEMB,OCCEMPNB,OCCEMPB,...
     nz,na,nprob,nkap,Zarray,Aarray,Parray,Karray,Oarray,POSB,NN,TT,...
     bigz,biga,bige,bigprob,bigkap,amin,lambda,mu);
 
 
-BIGZ = X(:,1);
-BIGA = X(:,2);
-BIGE = X(:,3);
-OCC  = X(:,4);
+BIGZ   = X(:,1);
+BIGA   = X(:,2);
+BIGE   = X(:,3);
+OCC    = X(:,4);
+TOTOCC = X(:,5);
 OCCS = OCC(OCC==4 | OCC==3);
 bigp = bigprob(OCC==4 | OCC==3);
-
-
 
 

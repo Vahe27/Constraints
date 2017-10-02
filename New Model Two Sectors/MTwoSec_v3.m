@@ -34,7 +34,7 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 8;
+etta     = 8.5;
 sigz     = 1;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
@@ -55,7 +55,7 @@ epsilon  = [0 0.5 5];
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.30; % Exemption level
+xi       = 0.25; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -92,7 +92,7 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.8;
+w0       = 0.844718251775591;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
 b0       = 0.01;
 tau      =  [0.001];
@@ -189,7 +189,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.1;
+wmax     = 1.0;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -431,7 +431,7 @@ end
 
 maxiter_v = 1000;
 iter_v  = 1;
-tol_v   = 1e-5;
+tol_v   = 1e-6;
 dist_v  = 500;
 
 Uwk   = repmat(reshape(Uwk,nz,na,1,nap,nkap),1,1,nprob,1,1);
@@ -660,9 +660,12 @@ rold = r0;
 %{%}
 lastresortflag = 0;
 ll=1;
+BIGPROB      = [1-bigp repmat(bigp,1,neps-1).*repmat(zetta,...
+               length(bigp),1)];
 while ll<1000
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
+
 X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
 
 LDS       = X(:,1);
@@ -670,8 +673,6 @@ occindexS = X(:,2); % occindex=1 if chooses to hire
 KDindexS  = X(:,3);
 incomeS   = X(:,4);
 KDS       = X(:,5);
-
-clear X
 
 X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
 
@@ -682,6 +683,7 @@ incomeB   = X(:,4);
 KDB       = X(:,5);
 
 clear X
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 LabMarket;
@@ -704,7 +706,6 @@ r0 = 1./q0 -1;
 
 %distR           = distq;
 checkR(:,ll) = distq;
-
 
 if distq<tolq
     break
@@ -738,6 +739,7 @@ if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortflag = 1;
 end
 %}
+
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -827,6 +829,9 @@ disp([checkq])
 end;
 
 avgr = sum(KBOR(:,1)./sum(KBOR(:,1)).*r0(1,:)');
+
+% Subsistence entrepreneurship share
+equsubshare;
 
 clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     kaparrayintS zarrayintB kaparrayintB znarray anarray kapnarray...
