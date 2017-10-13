@@ -60,6 +60,7 @@ xi       = 0.25; % Exemption level
 % Grid Parameters
 amin    = 0.1;
 amax    = 350;
+Kmax    = 2e3;
 na      = 130;
 nap     = 300;
 nz      = 20;
@@ -69,6 +70,7 @@ nprob   = 5;
 neps    = 3;
 nr      = 2; % Number of interest rates a self-emp can face
 nk      = 200; % The number of capital grid
+upperz  = 0.9998;
 
 
 
@@ -92,10 +94,10 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.87;
+w0       = 0.8;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.10;
-tau      =  [0.021];
+b0       = 0.15;
+tau      =  [0.0356];
 tauinit  = tau;
 r0init   = r0;
 %--------------------------------------------------------------------------
@@ -178,7 +180,10 @@ LFLAG    = 0;
 %% Capital and Government Tax Loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
-
+Nint = 2e6;
+NZint = 2e6;
+Iint  = invint(kgrid,Nint);
+Zint  = zint(varphi,upperz,NZint,etta);
 
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -251,8 +256,8 @@ lastresortflag = 0;
 % r0       = 0.04*ones(2,nk);
 %     end
 % end
-
- r0 = 0.04*ones(2,nk);
+load('C:\Users\vkrrikya\Desktop\SecondProject\A simple model\LMclearing\New Model Two Sectors\0410etta85b015tau0365','r0');
+%r0 = 0.04*ones(2,nk);
 
 while distR>tolR && iterR<maxiterR
 
@@ -662,25 +667,35 @@ lastresortflag = 0;
 ll=1;
 BIGPROB      = [1-bigp repmat(bigp,1,neps-1).*repmat(zetta,...
                length(bigp),1)];
-while ll<1000
+% Iint = [valuessmall valueslarge alfasmall alfalarge gamasmall gamalarge]
+Falfa1 = griddedInterpolant(Iint(:,1),Iint(:,3));
+Falfa2 = griddedInterpolant(Iint(:,2),Iint(:,4));
+Fgama1 = griddedInterpolant(Iint(:,1),Iint(:,5));
+Fgama2 = griddedInterpolant(Iint(:,2),Iint(:,6));
+Fzgam  = griddedInterpolant(Zint(:,1),Zint(:,2));
+
+           
+%while ll<1000
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
 
-X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
-
+X = KLMCMCINT(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0...
+    ,Falfa1,Fgama1,Fzgam);
 LDS       = X(:,1);
 occindexS = X(:,2); % occindex=1 if chooses to hire
 KDindexS  = X(:,3);
 incomeS   = X(:,4);
 KDS       = X(:,5);
 
-X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
-
+X = KLMCMCINT(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0...
+    ,Falfa2,Fgama2,Fzgam);
 LDB       = X(:,1);
 occindexB = X(:,2); % occindex=1 if chooses to hire
 KDindexB  = X(:,3);
 incomeB   = X(:,4);
 KDB       = X(:,5);
+
+
 
 clear X
 
@@ -712,23 +727,23 @@ if distq<tolq
 end
 
 
-if ll>=999 && lastresortflag == 0
-    lastresortD = checkR(:,1:ll);
-    lastresortI = find(lastresortD == min(lastresortD));
-    q0          = checkQ(:,:,lastresortI);
-    r0          = 1./q0 - 1;
-    lastresortflag = 1;
-    ll=ll-1;
-end
+%if ll>=999 && lastresortflag == 0
+%    lastresortD = checkR(:,1:ll);
+%    lastresortI = find(lastresortD == min(lastresortD));
+%    q0          = checkQ(:,:,lastresortI);
+%    r0          = 1./q0 - 1;
+%    lastresortflag = 1;
+%   ll=ll-1;
+%end
 
-ll = ll+1;
+% ll = ll+1;
 
-end
+%end
 
 iterR         = iterR + 1
 
 
-distR =max(max(abs(r0 - rold)*2./(rold+r0)));
+distR =max(max(abs(r0 - rold)*2/(rold+r0)));
 %{
 if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortD = max(max(checkR(:,:,1:iterR-1)));
@@ -740,6 +755,7 @@ if iterR>=maxiterR-1 && lastresortflag == 0
 end
 %}
 
+distR = 0;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -847,7 +863,8 @@ clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     probdefaultB probarrayintB POSB OCCS occindexS occindexB Nold MAXNES...
     IS IW INESWB indV indU INDEX ESold EAS dummy Bup Blow bigeprobs...
     B B0 AN zarrayintS occ FABB FABN FAPN FAPS FAPW FB FBB FBN FEVuB...
-    FEVuN FEVwB FEVwN FFIN FN FS FW biga bige bigz
+    FEVuN FEVwB FEVwN FFIN FN FS FW biga bige bigz Iint Zint...
+    Falfa1 Falfa2 Fgama1 Fgama2 Fzgam
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

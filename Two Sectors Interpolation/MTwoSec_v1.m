@@ -68,7 +68,7 @@ ne      = 3; % The number of occupations
 nprob   = 5;
 neps    = 3;
 nr      = 2; % Number of interest rates a self-emp can face
-nk      = 200; % The number of capital grid
+nk      = 400; % The number of capital grid
 
 
 
@@ -92,16 +92,16 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.87;
+w0       = 0.8444;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.10;
-tau      =  [0.021];
+b0       = 0.15;
+tau      =  [0.001];
 tauinit  = tau;
 r0init   = r0;
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
-NN = 2e5;
+NN = 1.5e5;
 TT = 250;
 
 nA   = 500;
@@ -189,7 +189,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.0;
+wmax     = 1.1;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -246,13 +246,13 @@ maxiterR = 150;
 tolupr   = 0.015;
 lastresortflag = 0;
 
-% if iterL>1
-%     if abs(w0 - wold)*2/(w0+wold)>tolupr
-% r0       = 0.04*ones(2,nk);
-%     end
-% end
+if iterL>1
+    if abs(w0 - wold)*2/(w0+wold)>tolupr
+r0       = 0.04*ones(2,nk);
+    end
+end
 
- r0 = 0.04*ones(2,nk);
+% r0 = 0.04*ones(2,nk);
 
 while distR>tolR && iterR<maxiterR
 
@@ -431,7 +431,7 @@ end
 
 maxiter_v = 1000;
 iter_v  = 1;
-tol_v   = 1e-6;
+tol_v   = 1e-5;
 dist_v  = 500;
 
 Uwk   = repmat(reshape(Uwk,nz,na,1,nap,nkap),1,1,nprob,1,1);
@@ -651,39 +651,38 @@ clear iminW imaxW iminS imaxS iminB imaxB ilowW iupW ilowS iupS ilowB...
 
 %% Stationary Distribution
 %--------------------------------------------------------------------------
-StatDist;
+if CONTSTATDIST == 0 
+StatdistVFI;
+else
+StatdistVFIapcont;
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Save the current capital price
 
 qold = 1./(r0+1);
-rold = r0;
 %{%}
-lastresortflag = 0;
-ll=1;
-BIGPROB      = [1-bigp repmat(bigp,1,neps-1).*repmat(zetta,...
-               length(bigp),1)];
-while ll<1000
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
-
 X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
 
-LDS       = X(:,1);
-occindexS = X(:,2); % occindex=1 if chooses to hire
-KDindexS  = X(:,3);
-incomeS   = X(:,4);
-KDS       = X(:,5);
-
-X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
-
-LDB       = X(:,1);
-occindexB = X(:,2); % occindex=1 if chooses to hire
-KDindexB  = X(:,3);
-incomeB   = X(:,4);
-KDB       = X(:,5);
+LDS       = X(:,:,1);
+occindexS = X(:,:,2); % occindex=1 if chooses to hire
+KDindexS  = X(:,:,3);
+incomeS   = X(:,:,4);
+KDS       = X(:,:,5);
 
 clear X
 
+X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
+
+LDB       = X(:,:,1);
+occindexB = X(:,:,2); % occindex=1 if chooses to hire
+KDindexB  = X(:,:,3);
+incomeB   = X(:,:,4);
+KDB       = X(:,:,5);
+
+clear X
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 LabMarket;
@@ -695,8 +694,6 @@ KMarket;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %{%}
 distq = max(max(abs(diffK)));
-checkQ(:,:,ll) = q0;
-
 
 if distq>tolq
 q0   = (1-qupdate).*q0 + qupdate.*(qnew);
@@ -704,32 +701,14 @@ end
 
 r0 = 1./q0 -1;
 
-%distR           = distq;
-checkR(:,ll) = distq;
-
-if distq<tolq
-    break
-end
-
-
-if ll>=999 && lastresortflag == 0
-    lastresortD = checkR(:,1:ll);
-    lastresortI = find(lastresortD == min(lastresortD));
-    q0          = checkQ(:,:,lastresortI);
-    r0          = 1./q0 - 1;
-    lastresortflag = 1;
-    ll=ll-1;
-end
-
-ll = ll+1;
-
-end
+distR           = distq;
+checkQ(:,:,iterR) = qold;
+checkR(:,:,iterR) = diffK;
 
 iterR         = iterR + 1
+distR
 
 
-distR =max(max(abs(r0 - rold)*2./(rold+r0)));
-%{
 if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortD = max(max(checkR(:,:,1:iterR-1)));
     lastresortI = find(lastresortD == min(lastresortD));
@@ -738,9 +717,99 @@ if iterR>=maxiterR-1 && lastresortflag == 0
     iterR       = maxiterR - 1;
     lastresortflag = 1;
 end
+end
+
+%{
+
+if distq>tolq
+q0   = (1-qupdate).*q0 + qupdate.*(qnew);
+end
+r0 = 1./q0 -1;
+
+
+ 
+
+
+distR           = distq;
+checkR(:,iterR) = diffK; 
+checkQ(:,iterR) = qold;
+
+
+iterR         = iterR + 1
+distR
+
+if iterR>=maxiterR-1 && lastresortflag == 0
+    lastresortD = max(checkR(:,1:iterR-1));
+    lastresortI = find(lastresortD == min(lastresortD));
+    q0          = checkQ(:,lastresortI);
+    r0          = 1./q0' - 1;
+    iterR       = maxiterR - 1;
+    lastresortflag = 1;
+end
+
+%{
+% r0 = 0.04*ones(1,nk);
+checkq = zeros(20,1);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for ll = 1:20
+    
+X = KLMCMC(BIGZ(OCC==3),BIGA(OCC==3),kgrid,r0,w0,1);
+
+LD       = X(:,:,1);
+occindex = X(:,:,2); % occindex=1 if chooses to hire
+KDindex  = X(:,:,3);
+income   = X(:,:,4);
+KD       = X(:,:,5);
+
+clear X
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+LabMarket;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+KMarket;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+q0   = (1-qupdate).*q0 + qupdate.*(qnew);
+
+
+r0 = 1./q0 -1;
+%{
+distq = max(max(abs(diffK)));
+
+ checkq(ll) = distq;
+
+if distq < tolq;
+
+    break;
+    
+elseif ll>500 && distq<min(checkq(checkq>0))*1.1
+    
+    break;
+        
+end
+%}
+end
+
+% distTEMP      = abs(q0-qold)*2./(q0+qold);
+
+%distR         = max(distTEMP);
+
+distR           = max(max(abs(diffK)));
+checkR(:,iterR) = distR; 
+
+% q0            = rupdate*q0 + (1-rupdate)*qold;
+% r0            = 1./q0 - 1;
+
+iterR         = iterR + 1
+distR       
+%}
+end;
+
 %}
 
-end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 funcdistL(iterL,:) = [(LS-LD)/((LD+LS)/2) w0];
@@ -827,11 +896,6 @@ disp([checkq])
 
 
 end;
-
-avgr = sum(KBOR(:,1)./sum(KBOR(:,1)).*r0(1,:)');
-
-% Subsistence entrepreneurship share
-equsubshare;
 
 clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     kaparrayintS zarrayintB kaparrayintB znarray anarray kapnarray...

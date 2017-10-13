@@ -67,5 +67,5 @@ sharebus = sum(OCC==4)/NN;
 
 occdist15 = [shareunemp shareemp sharesemp sharebus]';
 
-compareocc0115([occdist01 occdist15])
+createfigure([occdist01 occdist15])
 

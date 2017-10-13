@@ -22,11 +22,11 @@ betta    = 0.9468;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
-lambda = 0.2;
-mu     = 0.3;
+lambda = 0.4;
+mu     = 0.011;
 
 % Production Parameters
-deltta   = 0.06;
+deltta   = 0.07;
 alfa     = 0.3;
 nu       = 0.84;
 gama     = nu - alfa;
@@ -44,22 +44,23 @@ ettakap  = 0.15;
 sigkap   = 1.5;
 
 % Fixed Cost to increase business size;
-THETA = 7.5;
+THETA = 12.5;
 
 % The Default Parameters
 mueps    = 1;
 sigeps   = 7;
 zetta    = [0.5 0.5]; % The likelihood that conditional on shock realizing, it will be low
-epsilon  = [0 0.5 5]; 
+epsilon  = [0 0.7 10]; 
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.25; % Exemption level
+xi       = 0.14; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
 amax    = 350;
+Kmax    = 2e3;
 na      = 130;
 nap     = 300;
 nz      = 20;
@@ -69,6 +70,7 @@ nprob   = 5;
 neps    = 3;
 nr      = 2; % Number of interest rates a self-emp can face
 nk      = 200; % The number of capital grid
+upperz  = 0.9998;
 
 
 
@@ -92,17 +94,17 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.87;
+w0       = 0.7;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.10;
-tau      =  [0.021];
+b0       = 0.235;
+tau      =  [0.035];
 tauinit  = tau;
 r0init   = r0;
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
 NN = 2e5;
-TT = 250;
+TT = 270;
 
 nA   = 500;
 nZ   = 200;
@@ -178,7 +180,10 @@ LFLAG    = 0;
 %% Capital and Government Tax Loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
-
+Nint = 2e6;
+NZint = 2e6;
+Iint  = invint(kgrid,Nint);
+Zint  = zint(varphi,upperz,NZint,etta);
 
 %% The Labor Loop starts here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -189,7 +194,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.0;
+wmax     = 0.8;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -203,8 +208,6 @@ FLAGUNCLEARL = 0;
 %--------------------------------------------------------------------------
 % The Capital grid: New Addition, each firm chooses the amount that
 % maximizes its profit, but the capital choice is not continuous.
-
-kgrid = kdist(nk,sigz,etta,r0,w0,kmethod);
 
 %--------------------------------------------------------------------------
 
@@ -270,7 +273,7 @@ kapgrid(1)=0;
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
 
-SEMP     = profitcalc2(varphi*zgrid,agrid,kgrid(1,:),r0(1,:),w0);
+SEMP     = profitcalc2(zgrid*varphi,agrid,kgrid(1,:),r0(1,:),w0);
 %incsown  = SEMP(:,:,:,1);
 %incsemp  = SEMP(:,:,:,2); % Index indicating whether the individual hires or not
 %ysown    = SEMP(:,:,:,3);
@@ -388,9 +391,12 @@ VwB  = VuB+0.25;
 
 W    = repmat((w0 + agrid*(1+r_bar)).^(1-sigma)/(1-sigma)/(1-betta),nz,1,nprob,nkap);
 N    = repmat((b0 + agrid*(1+r_bar)).^(1-sigma)/(1-sigma)/(1-betta),nz,1,nprob,nkap);
-S    = repmat(sempinc(:,:,1,:),1,1,nkap).^(1-sigma)/(1-sigma)/(1-betta);
-BN   = repmat(busincN(:,:,1,:),1,1,nkap).^(1-sigma)/(1-sigma)/(1-betta);
-BB   = repmat(businc(:,:,1,:),1,1,nkap).^(1-sigma)/(1-sigma)/(1-betta); 
+S    = repmat(reshape(sempinc(:,:,1,:),nz,na,nprob),1,1,1,nkap)...
+       .^(1-sigma)/(1-sigma)/(1-betta);
+BN   = repmat(reshape(busincN(:,:,1,:),nz,na,nprob),1,1,1,nkap)...
+       .^(1-sigma)/(1-sigma)/(1-betta);
+BB   = repmat(reshape(businc(:,:,1,:),nz,na,nprob),1,1,1,nkap)...
+       .^(1-sigma)/(1-sigma)/(1-betta); 
 EBN  = BN;
 EBB  = BB;
 ES   = S;
@@ -662,25 +668,35 @@ lastresortflag = 0;
 ll=1;
 BIGPROB      = [1-bigp repmat(bigp,1,neps-1).*repmat(zetta,...
                length(bigp),1)];
+% Iint = [valuessmall valueslarge alfasmall alfalarge gamasmall gamalarge]
+Falfa1 = griddedInterpolant(Iint(:,1),Iint(:,3));
+Falfa2 = griddedInterpolant(Iint(:,2),Iint(:,4));
+Fgama1 = griddedInterpolant(Iint(:,1),Iint(:,5));
+Fgama2 = griddedInterpolant(Iint(:,2),Iint(:,6));
+Fzgam  = griddedInterpolant(Zint(:,1),Zint(:,2));
+
+           
 while ll<1000
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
 
-X = KLMCMC(varphi.*BIGZ(OCC==3),BIGA(OCC==3),kgrid(1,:),r0(1,:),w0,1);
-
+X = KLMCMCINT(BIGZ(OCC==3)*varphi,BIGA(OCC==3),kgrid(1,:),r0(1,:),w0...
+    ,Falfa1,Fgama1,Fzgam);
 LDS       = X(:,1);
 occindexS = X(:,2); % occindex=1 if chooses to hire
 KDindexS  = X(:,3);
 incomeS   = X(:,4);
 KDS       = X(:,5);
 
-X = KLMCMC(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0,1);
-
+X = KLMCMCINT(BIGZ(OCC==4),BIGA(OCC==4),kgrid(2,:),r0(2,:),w0...
+    ,Falfa2,Fgama2,Fzgam);
 LDB       = X(:,1);
 occindexB = X(:,2); % occindex=1 if chooses to hire
 KDindexB  = X(:,3);
 incomeB   = X(:,4);
 KDB       = X(:,5);
+
+
 
 clear X
 
@@ -750,7 +766,7 @@ if iterL==2 && sign(funcdistL(iterL,1)) == sign(funcdistL(iterL-1,1))
         wmax  = wmax*1.05;
         iterL = iterL - 1;
     elseif sign(funcdistL(iterL,1))== 1;
-        wmax  = wmax*0.95;
+        wmax  = w0*0.95;
         iterL = iterL - 1;
     end
 end
@@ -847,7 +863,8 @@ clear a_array z_array kap_array prob_array zarrayintintS probarrayintS...
     probdefaultB probarrayintB POSB OCCS occindexS occindexB Nold MAXNES...
     IS IW INESWB indV indU INDEX ESold EAS dummy Bup Blow bigeprobs...
     B B0 AN zarrayintS occ FABB FABN FAPN FAPS FAPW FB FBB FBN FEVuB...
-    FEVuN FEVwB FEVwN FFIN FN FS FW biga bige bigz
+    FEVuN FEVwB FEVwN FFIN FN FS FW biga bige bigz Iint Zint...
+    Falfa1 Falfa2 Fgama1 Fgama2 Fzgam
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
