@@ -55,7 +55,7 @@ epsilon  = [0 0.5 5];
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.25; % Exemption level
+xi       = 0.16; % Exemption level
 
 % Grid Parameters
 amin    = 0.1;
@@ -608,7 +608,7 @@ distVN = max(max(max(max(abs(N0 - N)./((abs(N0)+abs(N))/2)))));
 distVS = max(max(max(max(abs(ES0 - ES)./((abs(ES0)+abs(ES))/2)))));
 distVB = max(max(max(max(abs(EBN0 - EBN)./((abs(EBN0)+abs(EBN))/2)))));
 
-dist_v = max(distVW,max(distVN,distVS));
+dist_v = max(distVW,max(distVN,distVS))
 
 W0     = W;
 N0     = N;

@@ -14,19 +14,19 @@ tic
 rng(1)
 %% Parameters
 
-global r_bar deltta alfa nu gama Gama xi varphi zetta THETA
+global r_bar deltta alfa nu gama Gama varphi zetta THETA xi
 
 % Environment and Preference Parameters Parameters
 r_bar    = 0.04;
-betta    = 0.9468;
+betta    = 0.96;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
-lambda = 0.4;
-mu     = 0.011;
+lambda = 1/3.5; % avg emp duration 2.5y Shimer (2005)
+mu     = 6.5/19; % avg unemp duration 6.5/12 year (OECD 2015-16)
 
 % Production Parameters
-deltta   = 0.07;
+deltta   = 0.06;
 alfa     = 0.3;
 nu       = 0.84;
 gama     = nu - alfa;
@@ -34,35 +34,35 @@ varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 8.5;
+etta     = 8;
 sigz     = 1;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
 
 % Two parameters that will be useful for the disutility from work
-ettakap  = 0.15;
+ettakap  = 0.1;
 sigkap   = 1.5;
 
 % Fixed Cost to increase business size;
-THETA = 12.5;
+THETA = 10;
 
 % The Default Parameters
 mueps    = 1;
 sigeps   = 7;
 zetta    = [0.5 0.5]; % The likelihood that conditional on shock realizing, it will be low
-epsilon  = [0 0.7 10]; 
+epsilon  = [0 0.7 5]; 
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
 kmethod  = 1.5; % Method with how to create the capital grid, 0 linear, 1 exponential
-xi       = 0.3; % Exemption level
+xi       = 0.17; % Exemption level, share of wage
 
 % Grid Parameters
-amin    = 0.1;
+amin    = 0.001;
 amax    = 350;
 Kmax    = 2e3;
-na      = 130;
-nap     = 300;
+na      = 120;
+nap     = 350;
 nz      = 20;
 nkap    = 5;
 ne      = 3; % The number of occupations
@@ -94,10 +94,10 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = 0.7;
+w0       = 0.88;
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.235;
-tau      =  [0.035];
+b0       = 0.25;
+tau      =  [0.06];
 tauinit  = tau;
 r0init   = r0;
 %--------------------------------------------------------------------------
@@ -194,7 +194,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 0.8;
+wmax     = 1.0;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -291,7 +291,7 @@ BUSN     = profitcalc2_entry(zgrid,agrid,kgrid(2,:),r0(2,:),w0);
 
 % aftershockinc
 
-X = aftershockinc(SEMP,epsilon, P,neps,0); % X(nz x na x nr x neps) 
+X = aftershockinc(SEMP,w0,epsilon, P,neps,0); % X(nz x na x nr x neps) 
 sempincP = X; 
 clear X
 
@@ -302,7 +302,7 @@ IhireS   = X(:,:,:,:,1);
 clear X sempincP
 
 
-X = aftershockinc(BUS,epsilon, P,neps,0); % X(nz x na x nr x neps) 
+X = aftershockinc(BUS,w0,epsilon, P,neps,0); % X(nz x na x nr x neps) 
 busincP = X; 
 clear X
 
@@ -311,7 +311,7 @@ businc = X(:,:,:,:,2);
 IhireB   = X(:,:,:,:,1);
 clear X busincP
 
-X = aftershockinc(BUSN,epsilon,P,neps,0);
+X = aftershockinc(BUSN,w0,epsilon,P,neps,0);
 busincNP = X;
 clear X
 
@@ -347,7 +347,7 @@ consbNB = repmat(reshape(busincN(:,:,bneps,:),nz,na,nprob),1,1,1,nap) - ...
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-AtildeS  = assetaprox(sempinc,agrid,b0,bneps,nz,na,neps,nprob);
+AtildeS  = assetaprox(sempinc,agrid,b0*w0,bneps,nz,na,neps,nprob);
 
 AtildeBN  = assetaprox(busincN,agrid,[],bneps,nz,na,neps,nprob);
 
@@ -358,6 +358,18 @@ AtildeBB = assetaproxB(busincN(:,:,bneps,:),businc,agrid,nz,na,nprob,neps);
 Uw   = ucalc(consw, sigma);
 UsB  = ucalc(conssB, sigma);
 UbNB = ucalc(consbNB, sigma);
+%--------------------------------------------------------------------------
+% Temporary Adjustment: If the assets for interpolation are too low, what
+% will happen is that during the interpolation the value assigned will be
+% nan, which means the value function will NOT converge. Solution, replace
+% the low values of assets with the closest value from agrid (AtildeBB)
+ tempx = UbNB(1,:,1,1);
+ tempx = min(find(agrid>THETA));
+ AtildeBB(AtildeBB<agrid(tempx)) = agrid(tempx);
+
+
+%--------------------------------------------------------------------------
+
 
 % UbNB(isnan(UbNB)) = -100;
 clear consw consu conssB consbB consbNB
@@ -372,13 +384,10 @@ UbNBk = repmat(UbNB,1,1,1,1,nkap); % for the new entrants
 
 clear Uw Uu UsB UbB UbNB
 
-%--------------------------------------------------------------------------
-
 % Auxilliary Parameters II
 ATILDES       = repmat(reshape(AtildeS,nz,na*(neps+1),nprob),1,1,1,nkap);
 ATILDEBN      = repmat(reshape(AtildeBN,nz,na*neps,nprob),1,1,1,nkap);
 ATILDEBB      = repmat(reshape(AtildeBB,nz,na*neps,nprob),1,1,1,nkap);
-
 clear AtildeS AtildeBB AtildeBN
 %% Value Function Iteration
 % --------------------Value Funcion Interation-----------------------------
@@ -390,7 +399,7 @@ VuB  = zeros(nz,na,nprob,nkap);
 VwB  = VuB+0.25;
 
 W    = repmat((w0 + agrid*(1+r_bar)).^(1-sigma)/(1-sigma)/(1-betta),nz,1,nprob,nkap);
-N    = repmat((b0 + agrid*(1+r_bar)).^(1-sigma)/(1-sigma)/(1-betta),nz,1,nprob,nkap);
+N    = repmat((b0*w0 + agrid*(1+r_bar)).^(1-sigma)/(1-sigma)/(1-betta),nz,1,nprob,nkap);
 S    = repmat(reshape(sempinc(:,:,1,:),nz,na,nprob),1,1,1,nkap)...
        .^(1-sigma)/(1-sigma)/(1-betta);
 BN   = repmat(reshape(busincN(:,:,1,:),nz,na,nprob),1,1,1,nkap)...
@@ -609,12 +618,13 @@ TBB    = reshape(FB(zarrayintB,ATILDEBB,probarrayintB,kaparrayintB)...
 EBB    = reshape(sum(TBB .* probmtx,3),nz,na,nprob,nkap);
 
 
+
 distVW = max(max(max(max(abs(W0 - W)./((abs(W0)+abs(W))/2)))));
 distVN = max(max(max(max(abs(N0 - N)./((abs(N0)+abs(N))/2)))));
 distVS = max(max(max(max(abs(ES0 - ES)./((abs(ES0)+abs(ES))/2)))));
 distVB = max(max(max(max(abs(EBN0 - EBN)./((abs(EBN0)+abs(EBN))/2)))));
 
-dist_v = max(distVW,max(distVN,distVS));
+dist_v = max(distVW,max(distVN,distVS))
 
 W0     = W;
 N0     = N;
@@ -738,7 +748,7 @@ if ll>=999 && lastresortflag == 0
 end
 
 ll = ll+1;
-
+distq=0;
 end
 
 iterR         = iterR + 1
@@ -755,7 +765,7 @@ if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortflag = 1;
 end
 %}
-
+distR=0;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
