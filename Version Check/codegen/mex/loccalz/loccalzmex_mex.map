@@ -1,0 +1,12 @@
+MEX {
+	global:
+		mexFunction;
+		mexfilerequiredapiversion;
+		emlrtMexFcnProperties;
+		loccalz;
+		loccalz_initialize;
+		loccalz_terminate;
+		loccalz_atexit;
+	local:
+		*;
+};

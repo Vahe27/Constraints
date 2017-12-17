@@ -102,9 +102,11 @@ BIND = (OCC==4)+3;
 TOTOCC(:,tt+1) = BIND.*BIGE;
 CUROCC(:,tt) = OCC;
 end
+% Tenure extract
+tenext = reshape(CUROCC(1:25:NN,151:200),NN,2);
 
 y(:,1) = bigz(:,TT);
 y(:,2) = biga(:,TT);
 y(:,3) = bige(:,TT);
 y(:,4) = OCC;
-y(:,5) = TOTOCC(:,TT);
+y(:,5:6) = tenext;

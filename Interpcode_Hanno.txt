@@ -1,0 +1,108 @@
+@njit(cache=True)
+def interpolate_mat3d(a,b,c,f_mat,A_grid,B_grid,C_grid):
+
+	A_ind=(np.abs(a-A_grid)).argmin()
+	B_ind=(np.abs(b-B_grid)).argmin()
+	C_ind=(np.abs(c-C_grid)).argmin()
+
+	if a>=np.max(A_grid):
+		
+		a=np.max(A_grid)
+		a_ind_vals=[A_ind,A_ind-1]
+	
+	elif a<=np.min(A_grid):
+		
+		a=np.min(A_grid)
+		a_ind_vals=[A_ind,A_ind+1]
+	
+	else:
+
+		a_ind_vals=[A_ind,A_ind+(1-2*(A_grid[A_ind]>=a))]
+		
+	if b>np.max(B_grid):
+		
+		b=np.max(B_grid)
+		b_ind_vals=[B_ind,B_ind-1]
+	
+	elif b<np.min(B_grid):
+		
+		b=np.min(B_grid)
+		b_ind_vals=[B_ind,B_ind+1]
+	
+	else:
+
+		b_ind_vals=[B_ind,B_ind+(1-2*(B_grid[B_ind]>=b))]
+
+	if c>np.max(C_grid):
+		
+		c=np.max(C_grid)
+		c_ind_vals=[C_ind,C_ind-1]
+	
+	elif c<np.min(C_grid):
+		
+		c=np.min(C_grid)
+		c_ind_vals=[C_ind,C_ind+1]
+	
+	else:
+
+		c_ind_vals=[C_ind,C_ind+(1-2*(C_grid[C_ind]>=c))]
+
+
+	r=0*f_mat[0,0,0]
+	for i in [0,1]:
+
+		for j in [0,1]:
+
+			for k in [0,1]:
+
+				a_ind=a_ind_vals[i]
+				b_ind=b_ind_vals[j]
+				c_ind=c_ind_vals[k]
+
+				A1_grid=A_grid[a_ind_vals[1-i]]
+				
+				B1_grid=B_grid[b_ind_vals[1-j]]
+
+				C1_grid=C_grid[c_ind_vals[1-k]]
+
+				r+=f_mat[a_ind,b_ind,c_ind]*np.abs(A1_grid-a)*np.abs(B1_grid-b)*np.abs(C1_grid-c)
+	
+	r=r/(np.abs(A_grid[a_ind_vals[0]]-A_grid[a_ind_vals[1]])
+		*np.abs(B_grid[b_ind_vals[0]]-B_grid[b_ind_vals[1]])
+		*np.abs(C_grid[c_ind_vals[0]]-C_grid[c_ind_vals[1]]))
+	
+	return r
+
+
+
+
+
+
+
+
+
+
+@njit(cache=True)
+def interpolate_1d(a,f_mat,A_grid):
+
+	A_ind=(np.abs(a-A_grid)).argmin()
+
+	if a>=A_grid[-1]:
+
+		a=A_grid[-1]
+		a_ind_vals=[A_ind,A_ind-1]
+	
+	elif a<=A_grid[0]:
+
+		a=A_grid[0]
+		a_ind_vals=[A_ind,A_ind+1]
+	
+	else:
+
+		a_ind_vals=[A_ind,A_ind+(1-2*(A_grid[A_ind]>=a))]
+			
+	s=(f_mat[a_ind_vals[0]]-f_mat[a_ind_vals[1]])/(A_grid[a_ind_vals[0]]-A_grid[a_ind_vals[1]])
+
+	r=np.minimum(f_mat[a_ind_vals[0]],f_mat[a_ind_vals[1]])+s*(a-np.minimum(A_grid[a_ind_vals[0]],A_grid[a_ind_vals[1]]))
+
+	return r,s

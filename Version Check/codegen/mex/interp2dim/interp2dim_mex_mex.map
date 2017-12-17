@@ -1,0 +1,15 @@
+MEX {
+	global:
+		mexFunction;
+		mexfilerequiredapiversion;
+		emlrtMexFcnProperties;
+		interp2dim;
+		emxEnsureCapacity_real_T;
+		emxFree_real_T;
+		emxInit_real_T;
+		interp2dim_initialize;
+		interp2dim_terminate;
+		interp2dim_atexit;
+	local:
+		*;
+};

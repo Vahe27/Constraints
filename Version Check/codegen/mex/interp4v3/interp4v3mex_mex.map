@@ -1,0 +1,12 @@
+MEX {
+	global:
+		mexFunction;
+		mexfilerequiredapiversion;
+		emlrtMexFcnProperties;
+		interp4v3;
+		interp4v3_initialize;
+		interp4v3_terminate;
+		interp4v3_atexit;
+	local:
+		*;
+};

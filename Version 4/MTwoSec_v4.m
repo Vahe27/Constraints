@@ -22,25 +22,25 @@ betta    = 0.94;
 sigma    = 2; % Risk aversion coefficient, log utility if 1
 
 % Job destruction and job NOT finding parameters
-lambda = 0.3; % avg emp duration 2.5y Shimer (2005)
-mu     = 0.01; % avg unemp duration 6.5/12 year (OECD 2015-16)
+lambda = 0.33; % avg emp duration 2.5y Shimer (2005)
+mu     = 0.02; % avg unemp duration 6.5/12 year (OECD 2015-16)
 
 % Production Parameters
 deltta   = 0.06;
 alfa     = 0.3;
-nu       = 0.8;
+nu       = 0.85;
 gama     = nu - alfa;
 varphi   = 0.8;
 
 % Distribution Parameters
 ZDist    = 1; % Pareto, if 1. Normal if 2
-etta     = 7;
+etta     = 10;
 sigz     = 1/varphi;
 
 PSI      = 0.1; % The probability of changing the talent, then will be randomly drawn from z
 
 % Two parameters that will be useful for the disutility from work
-ettakap  = 0.4;
+ettakap  = 0.2;
 sigkap   = 8;
 
 % Fixed Cost to increase business size;
@@ -49,8 +49,8 @@ THETA = 15;
 % The Default Parameters
 mueps    = 1;
 sigeps   = 7;
-zetta    = [0.5 0.5]; % The likelihood that conditional on shock realizing, it will be low
-epsilon  = [0 2 10]; 
+zetta    = [0.75 0.25]; % The likelihood that conditional on shock realizing, it will be low
+epsilon  = [0 0.5 6]; 
 
 EPSdist  = 1; % 1 if normal distributed
 KAPdist  = 1;
@@ -94,17 +94,17 @@ kapgrid  = X(:,2);
 clear X
 
 % Initial Values of the variables
-w0       = [1.15];
+w0       = [0.9972];
 r0       = ones(nr,nk)*r_bar; % Now For each signal and amount there is a borrowing rate
-b0       = 0.27;
-tau      =  [0.07];
+b0       = 0.4;
+tau      =  [0.1];
 tauinit  = tau;
 r0init   = r0;
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
 % The Stationary Distribution Parameters
 NN = 2e5;
-TT = 270;
+TT = 250;
 
 nA   = 500;
 nZ   = 200;
@@ -194,7 +194,7 @@ tolL     = 0.0055;
 maxiterL = 25;
 iterL    = 1;
 stugL    = zeros(maxiterL,4);
-wmax     = 1.25;
+wmax     = 1.05;
 mflagL    = 1;
 wtol      = 100;
 wtolmax   = 1e-7;
@@ -214,7 +214,7 @@ FLAGUNCLEARL = 0;
 
 while distL>tolL && iterL<maxiterL && wtol > wtolmax
     
-
+% Vflag = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     
     if iterL>2 
@@ -240,14 +240,14 @@ while distL>tolL && iterL<maxiterL && wtol > wtolmax
  end;
  %-------------------------------------------------------------------------
 %{%}
-qupdate  = 0.01;
-rupdate  = 0.01;
+qupdate  = 0.02;
+rupdate  = 0.1;
 iterR    = 1;
-tolR     = 5e-3;
-tolq     = 5e-3;
-distR    = 150;
-maxiterR = 150;
-tolupr   = 0.015;
+tolR     = 4.5e-2;
+tolq     = 3e-3;
+distR    = 100;
+maxiterR = 30;
+tolupr   = 0.001;
 lastresortflag = 0;
 
 % if iterL>1
@@ -255,12 +255,16 @@ lastresortflag = 0;
 % r0       = 0.04*ones(2,nk);
 %     end
 % end
-
+%if abs(w0 - wold)*2/(w0+wold)>tolupr
  r0 = 0.04*ones(2,nk);
+%end
  %r0(1,1:end) = 0.05;
  %r0(1,1:150) = 0.1;
  %r0(1,151:200) = 0.07;
 while distR>tolR && iterR<maxiterR
+
+% UPDATE THIS WHEN CHANGING THE TOLERANCE%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+tolq     = 3e-3;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%FIX THE SEED$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$    
 rng(2)
@@ -413,7 +417,7 @@ clear AtildeS AtildeBB AtildeBN
 %if (wold-w0)*2/(wold+w0)>0.05
 %Vflag = 0;
 %end
-% Vflag = 0;
+
 if Vflag == 0
 VuN  = zeros(nz,na,nprob,nkap);
 VwN  = VuN+0.25;
@@ -730,10 +734,10 @@ Fgama1 = griddedInterpolant(Iint(:,1),Iint(:,5));
 Fgama2 = griddedInterpolant(Iint(:,2),Iint(:,6));
 Fzgam  = griddedInterpolant(Zint(:,1),Zint(:,2));
 
-while ll<1000
+while ll<500
 % Initialize the new capital price for calculating the equilibrium price at
 % the given stationary distribution
-
+tic
 X = KLMCMCINT(BIGZ(OCC==3)*varphi,BIGA(OCC==3),kgrid(1,:),r0(1,:),w0...
     ,Falfa1,Fgama1,Fzgam);
 LDS       = X(:,1);
@@ -750,7 +754,7 @@ KDindexB  = X(:,3);
 incomeB   = X(:,4);
 KDB       = X(:,5);
 
-
+toc
 
 clear X
 
@@ -769,7 +773,9 @@ checkQ(:,:,ll) = q0;
 
 
 if distq>tolq
-q0   = (1-qupdate).*q0 + qupdate.*(qnew);
+q0 = ((1-qupdate).*q0 + qupdate.*(qnew));
+%q0   = (q0>=qnew).*((1-qupdate).*q0 + qupdate.*(qnew)) +...
+%       (q0<qnew).*((1-qupdate).*qnew + qupdate.*(q0));
 end
 
 r0 = 1./q0 -1;
@@ -782,22 +788,29 @@ if distq<tolq
 end
 
 
-if ll>=999 && lastresortflag == 0
+if ll>=499 && lastresortflag == 0
     lastresortD = checkR(:,1:ll);
-    lastresortI = find(lastresortD == min(lastresortD));
+    lastresortI = min(find(lastresortD == min(lastresortD)));
     q0          = checkQ(:,:,lastresortI);
     r0          = 1./q0 - 1;
     lastresortflag = 1;
     ll=ll-1;
 end
 
+%if ll == 400
+%    tolq = 0.005;
+%end
+
 ll = ll+1;
 end
 
 iterR         = iterR + 1
 
+distR =max(max(abs(r0 - rold)*2./(rold+r0)))
 
-distR =max(max(abs(r0 - rold)*2./(rold+r0)));
+%r0 = (r0>=rold).*(0.9*rold+0.1*r0) + (r0<rold).*(0.9*r0+0.1*rold);
+r0 = (1-rupdate)*rold+ rupdate*r0;
+
 %{
 if iterR>=maxiterR-1 && lastresortflag == 0
     lastresortD = max(max(checkR(:,:,1:iterR-1)));
@@ -897,9 +910,13 @@ avgr = sum(KBOR(:,1)./sum(KBOR(:,1)).*r0(1,:)');
 
 % Subsistence entrepreneurship share
 equsubshare;
+% Calculation of workers' tenure
+tenurecalc;
 
-disp(['unemp' '....' 'emp' '....''subsemp''....' 'semp' '....' 'wage''...''borrowing R'])
-disp([ unemp LS sharesubsemp semp w0 avgr]) 
+
+disp(['.... unemp' '......emp' '....subsemp' '.....semp' '.....wage'...
+    '...borrowingR' '...tenure'])
+disp([ unemp LS sharesubsemp semp w0 avgr avgworktenure]) 
 
 end;
 

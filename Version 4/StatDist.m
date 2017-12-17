@@ -73,7 +73,7 @@ BIGZ   = X(:,1);
 BIGA   = X(:,2);
 BIGE   = X(:,3);
 OCC    = X(:,4);
-TOTOCC = X(:,5);
+TENOCC = reshape(X(:,5:6),NN/25,50);
 OCCS = OCC(OCC==4 | OCC==3);
 bigp = bigprob(OCC==4 | OCC==3);
 

@@ -1,0 +1,12 @@
+MEX {
+	global:
+		mexFunction;
+		mexfilerequiredapiversion;
+		emlrtMexFcnProperties;
+		aprimecalc;
+		aprimecalc_initialize;
+		aprimecalc_terminate;
+		aprimecalc_atexit;
+	local:
+		*;
+};
